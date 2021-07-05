@@ -1,0 +1,49 @@
+### characteristics
+* temp
+* goal temp
+* input voltage
+* eco
+* voltage protection layer
+* battery status?
+* min temp
+* max temp
+* startup delay
+
+```
+[WT-0001]# list-attributes 
+Primary Service
+        /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004
+        00001234-0000-1000-8000-00805f9b34fb
+        Unknown
+Characteristic
+        /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004/char0007
+        00001236-0000-1000-8000-00805f9b34fb
+        Unknown
+Descriptor
+        /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004/char0007/desc0009
+        00002902-0000-1000-8000-00805f9b34fb
+        Client Characteristic Configuration
+Characteristic
+        /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004/char0005
+        00001235-0000-1000-8000-00805f9b34fb
+        Unknown
+```
+
+```
+[WT-0001]# attribute-info /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004/char0007
+Characteristic - Unknown
+        UUID: 00001236-0000-1000-8000-00805f9b34fb
+        Service: /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004
+        Notifying: no
+        Flags: read
+        Flags: notify
+
+```
+
+```
+[WT-0001]# attribute-info /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004/char0005
+Characteristic - Unknown
+        UUID: 00001235-0000-1000-8000-00805f9b34fb
+        Service: /org/bluez/hci0/dev_D8_17_D1_F1_B9_78/service0004
+        Flags: write
+```
