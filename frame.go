@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+)
 
 // Frame describes the WT-0001 fridge state
 // TODO :GoAddTags for JSON
@@ -31,10 +35,8 @@ type Frame struct {
 }
 
 func (f Frame) String() string {
-	// "TempDegreesF=%d Thermostat=%dF Lock=%d InputVoltCutoffLvl=%d EcoMode=%d InputVolts=%d.%d",
 	return fmt.Sprintf(
-		"Header=%d UB1=%d UB2=%d KeypadLock=%d PoweredOn=%d EcoMode=%d InputVoltCutoffLvl=%d Thermostat=%d ThermoMaxDegSetting=%d ThermoMinDegSetting=%d UB10=%d UB11=%d FarenheitMode=%d UB13=%d UB14=%d UB15=%d UB16=%d TempDegreesF=%d UB17=%d InputVoltageVolts1=%d InputVoltageVolts2=%d UB20=%d UB21=%d",
-		f.Header,
+		"UB1=%d UB2=%d KeypadLock=%d PoweredOn=%d EcoMode=%d InputVoltCutoffLvl=%d Thermostat=%d ThermoMaxDegSetting=%d ThermoMinDegSetting=%d UB10=%d UB11=%d FarenheitMode=%d UB13=%d UB14=%d UB15=%d UB16=%d TempDegreesF=%d UB17=%d InputVoltageVolts1=%d InputVoltageVolts2=%d UB20=%d UB21=%d",
 		f.UB1,
 		f.UB2,
 		f.KeypadLock,
@@ -58,4 +60,25 @@ func (f Frame) String() string {
 		f.UB20,
 		f.UB21,
 	)
+}
+
+func (f Frame) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.LittleEndian, f); err != nil {
+		return buf.Bytes(), err
+	}
+	return buf.Bytes(), nil
+}
+
+func (f Frame) UnmarshalBinary(input []byte) (err error) {
+	readableValue := bytes.NewReader(input)
+	if err = binary.Read(readableValue, binary.LittleEndian, &f); err != nil {
+		return
+	}
+	return
+}
+
+// NewFrame creates a frame from byte buffer
+func NewFrame(input []byte) (fr Frame, err error) {
+	return fr, fr.UnmarshalBinary(input)
 }

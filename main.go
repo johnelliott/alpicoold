@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -65,9 +63,9 @@ func main() {
 	// Set up channel on which to send signal notifications.
 	// We must use a buffered channel or risk missing the signal
 	// if we're not ready to receive when addthe signal is sent.
-	c := make(chan os.Signal, 1)
+	sig := make(chan os.Signal, 1)
 	signal.Notify(
-		c,
+		sig,
 		syscall.SIGHUP,  // kill -SIGHUP XXXX
 		syscall.SIGINT,  // kill -SIGINT XXXX or Ctrl+c
 		syscall.SIGQUIT, // kill -SIGQUIT XXXX
@@ -89,7 +87,7 @@ func main() {
 		select {
 		case <-quit:
 			return
-		case s := <-c:
+		case s := <-sig:
 			log.Debug("Got signal:", s)
 			quit <- 1
 			log.Trace("quitting...")
@@ -133,22 +131,24 @@ func client(adapterID, hwaddr string, quit chan int) error {
 		return fmt.Errorf("findDevice: %s", err)
 	}
 
-	watchProps, err := dev.WatchProperties()
-	if err != nil {
-		return err
-	}
-	go func() {
-		for propUpdate := range watchProps {
-			log.Debugf("--> device updated %s=%v", propUpdate.Name, propUpdate.Value)
+	/*
+		watchProps, err := dev.WatchProperties()
+		if err != nil {
+			return err
 		}
-	}()
+		go func() {
+			for propUpdate := range watchProps {
+				log.Tracef("--> device updated %s=%v", propUpdate.Name, propUpdate.Value)
+			}
+		}()
+	*/
 
 	err = connect(dev, ag, adapterID)
 	if err != nil {
 		return err
 	}
 
-	err = retrieveServices(a, dev)
+	err = watchState(a, dev)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,9 @@ func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error
 	return nil
 }
 
-func retrieveServices(a *adapter.Adapter1, dev *device.Device1) error {
+// TODO make this function take a generic thing?
+// or maybe not because we need to send the version number to get notifications
+func watchState(a *adapter.Adapter1, dev *device.Device1) error {
 
 	list, err := dev.GetCharacteristics()
 	if err != nil {
@@ -271,7 +273,7 @@ func retrieveServices(a *adapter.Adapter1, dev *device.Device1) error {
 		select {
 		case <-time.After(2 * time.Second):
 		}
-		return retrieveServices(a, dev)
+		return watchState(a, dev)
 	}
 	log.Debugf("Found %d characteristics", len(list))
 
@@ -315,19 +317,16 @@ func retrieveServices(a *adapter.Adapter1, dev *device.Device1) error {
 	}
 	go func() {
 		for {
-			select {
-			case update := <-propsC:
-				log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
-				if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
-					value := update.Value.([]byte)
-					readableValue := bytes.NewReader(value)
-					var fr Frame
-					if err := binary.Read(readableValue, binary.LittleEndian, &fr); err != nil {
-						panic(err)
-					}
-					log.Debugf("State: %d", fr)
-					log.Info(fr)
+			update := <-propsC
+			log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
+			if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
+				value := update.Value.([]byte)
+				fr, err := NewFrame(value)
+				if err != nil {
+					panic(err)
 				}
+				log.Debugf("State: %d", fr)
+				log.Info(fr)
 			}
 		}
 	}()
@@ -337,15 +336,16 @@ func retrieveServices(a *adapter.Adapter1, dev *device.Device1) error {
 		return err
 	}
 
-	/*
-		// This is probably full state set
-		data, err := hex.DecodeString(maybeUnlock)
-		if err != nil {
-			return err
-		}
-		// log.Trace("Sending unlock", data)
-		char.WriteValue(data, nil)
-	*/
-
 	return nil
 }
+
+/*
+// TODO state setting
+// This is probably full state set
+data, err := hex.DecodeString(maybeUnlock)
+if err != nil {
+	return err
+}
+// log.Trace("Sending unlock", data)
+char.WriteValue(data, nil)
+*/
