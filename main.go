@@ -153,12 +153,12 @@ func client(ctx context.Context, adapterID, hwaddr string) error {
 	// Wait for quit signal
 	select {
 	case <-ctx.Done():
-		log.Error("Cancel client:", ctx.Err())
+		log.Trace("Cancel: client", ctx.Err())
 		log.Trace("Disconnecting from bluetooth...")
 		err := dev.Disconnect()
 		if err != nil {
 			log.Error(err)
-			panic(err)
+			return err
 		}
 		log.Trace("Disconnected from bluetooth")
 		return nil
@@ -239,7 +239,7 @@ func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error
 	log.Debugf("Found device name=%s addr=%s rssi=%d", props.Name, props.Address, props.RSSI)
 
 	if props.Connected {
-		log.Trace("Device is connected")
+		log.Info("Device is connected")
 		return nil
 	}
 
@@ -300,7 +300,7 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 		for {
 			select {
 			case <-ctx.Done():
-				log.Error("Cancel: magic payload loop", ctx.Err())
+				log.Trace("Cancel: magic payload loop", ctx.Err())
 				return
 			case <-ticker.C:
 				log.Trace("Writing magic payload", magicPayload)
@@ -330,7 +330,7 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 		for {
 			select {
 			case <-ctx.Done():
-				log.Error("Cancel: fridge state loop", ctx.Err())
+				log.Trace("Cancel: fridge state loop", ctx.Err())
 				return
 			case update := <-propsC:
 				log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
@@ -340,7 +340,7 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 					if err != nil {
 						log.Error("other frame UnmarshalBinary", err)
 					}
-					log.Debugf("f %s", f)
+					log.Infof("f %s", f)
 				}
 			}
 		}
