@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -38,7 +36,7 @@ var initialWrittenChar = "fefe03010200" // Evidently we need to keep sending thi
 var (
 	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
 	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	timeout     = flag.Duration("timeout", 30*time.Second, "overall program timeout")
+	timeout     = flag.Duration("timeout", 20*time.Second, "overall program timeout")
 )
 
 func main() {
@@ -183,6 +181,7 @@ func discover(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
 		return nil, err
 	}
 
+	// TODO use a discovery filter in here
 	discovery, cancel, err := api.Discover(a, nil)
 	defer cancel()
 	if err != nil {
@@ -319,6 +318,7 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 	go func(ctx context.Context) {
 		defer cancel()
 		log.Trace("state updater starting")
+		var f Frame
 		for {
 			select {
 			case <-ctx.Done():
@@ -328,14 +328,11 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 				log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
 				if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
 					value := update.Value.([]byte)
-					var f Frame
-					// TODO find how to fix fram methods
-					r := bytes.NewReader(value)
-					if err = binary.Read(r, binary.LittleEndian, &f); err != nil {
-						panic(err)
+					err = f.UnmarshalBinary(value)
+					if err != nil {
+						log.Error("other frame UnmarshalBinary", err)
 					}
-					log.Debugf("State: %d", f)
-					log.Info(f)
+					log.Debugf("f %s", f)
 				}
 			}
 		}

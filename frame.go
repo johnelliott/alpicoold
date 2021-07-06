@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Frame describes the WT-0001 fridge state
@@ -72,12 +70,12 @@ func (f Frame) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (f Frame) UnmarshalBinary(input []byte) error {
+func (f *Frame) UnmarshalBinary(input []byte) error {
+	// read into a new frame
 	r := bytes.NewReader(input)
-	if err := binary.Read(r, binary.LittleEndian, &f); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, f); err != nil {
 		return err
 	}
-	log.Debug(f)
 	return nil
 }
 
