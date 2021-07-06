@@ -187,7 +187,11 @@ func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.
 		return nil, err
 	}
 
-	// TODO use a discovery filter in here
+	dFilter := adapter.NewDiscoveryFilter()
+	dFilter.AddUUIDs(serviceUUID)
+	dFilter.Transport = "le"
+	a.SetDiscoveryFilter(dFilter.ToMap())
+
 	discovery, cancel, err := api.Discover(a, nil)
 	defer cancel()
 	if err != nil {
