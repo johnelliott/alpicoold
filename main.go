@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -35,7 +38,7 @@ var initialWrittenChar = "fefe03010200" // Evidently we need to keep sending thi
 var (
 	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
 	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	timeout     = flag.Duration("timeout", 30, "overall program timeout")
+	timeout     = flag.Duration("timeout", 30*time.Second, "overall program timeout")
 )
 
 func main() {
@@ -71,39 +74,27 @@ func main() {
 		syscall.SIGQUIT, // kill -SIGQUIT XXXX
 	)
 
-	// bluetooth state cleanup
-	quit := make(chan int)
+	// main context
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
 
-	// Do work for program
+	// Listen for control-c
 	go func() {
-		err := client(*adapterName, *addr, quit)
-		if err != nil {
-			panic(err)
-		}
+		s := <-sig
+		log.Debug("Got signal:", s)
+		cancel()
 	}()
 
-	// Block until some case happens
-	for {
-		select {
-		case <-quit:
-			return
-		case s := <-sig:
-			log.Debug("Got signal:", s)
-			quit <- 1
-			log.Trace("quitting...")
-			<-quit
-			return
-		case <-time.After(20 * time.Minute):
-			log.Debug("Timed out")
-			quit <- 1
-			log.Trace("quitting...")
-			<-quit
-			return
-		}
+	// Do work for program
+	clientContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err := client(clientContext, *adapterName, *addr)
+	if err != nil {
+		panic(err)
 	}
 }
 
-func client(adapterID, hwaddr string, quit chan int) error {
+func client(ctx context.Context, adapterID, hwaddr string) error {
 	log.Infof("Discovering %s on %s", hwaddr, adapterID)
 
 	a, err := adapter.NewAdapter1FromAdapterID(adapterID)
@@ -148,30 +139,27 @@ func client(adapterID, hwaddr string, quit chan int) error {
 		return err
 	}
 
-	err = watchState(a, dev)
+	watchStateCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err = watchState(watchStateCtx, a, dev)
 	if err != nil {
 		return err
 	}
 
+	log.Trace("client blocking and waiting")
 	// Wait for quit signal
 	select {
-	case <-quit:
-		disconnect(dev, quit)
-		return nil
-	}
-}
-
-func disconnect(dev *device.Device1, done chan int) {
-	log.Info("gracefully disconnecting, with such grace!")
-	go func() {
-		log.Warn("bluetooth disconnecting")
+	case <-ctx.Done():
+		log.Error("Cancel client:", ctx.Err())
+		log.Trace("disconnecting from bluetooth")
 		err := dev.Disconnect()
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
-		// say we are done disconnecting
-		done <- 1
-	}()
+		log.Trace("disconnected from bluetooth")
+		return nil
+	}
 }
 
 func findDevice(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
@@ -195,11 +183,10 @@ func discover(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
 	}
 
 	discovery, cancel, err := api.Discover(a, nil)
+	defer cancel()
 	if err != nil {
 		return nil, err
 	}
-
-	defer cancel()
 
 	for ev := range discovery {
 
@@ -261,7 +248,8 @@ func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error
 
 // TODO make this function take a generic thing?
 // or maybe not because we need to send the version number to get notifications
-func watchState(a *adapter.Adapter1, dev *device.Device1) error {
+func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) error {
+	log.Trace("watchState running")
 
 	list, err := dev.GetCharacteristics()
 	if err != nil {
@@ -273,7 +261,7 @@ func watchState(a *adapter.Adapter1, dev *device.Device1) error {
 		select {
 		case <-time.After(2 * time.Second):
 		}
-		return watchState(a, dev)
+		return watchState(ctx, a, dev)
 	}
 	log.Debugf("Found %d characteristics", len(list))
 
@@ -288,13 +276,21 @@ func watchState(a *adapter.Adapter1, dev *device.Device1) error {
 	if err != nil {
 		return err
 	}
-	go func() {
+
+	// Make a little cancelable pagic payloader
+	writexCtx, cancel := context.WithCancel(ctx)
+	go func(writexCtx context.Context) {
+		defer cancel()
+		log.Trace("magic payload writer starting")
 		// Set up a timer to send the stupid notification payload
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
 		for {
 			select {
+			case <-ctx.Done():
+				log.Error("Cancel: magic payload loop", ctx.Err())
+				return
 			case <-ticker.C:
 				log.Trace("Writing magic payload", data)
 				err = char.WriteValue(data, nil)
@@ -303,7 +299,7 @@ func watchState(a *adapter.Adapter1, dev *device.Device1) error {
 				}
 			}
 		}
-	}()
+	}(writexCtx)
 
 	notifChar, err := dev.GetCharByUUID(readeableFridgeUUID)
 	if err != nil {
@@ -315,27 +311,40 @@ func watchState(a *adapter.Adapter1, dev *device.Device1) error {
 	if err != nil {
 		return err
 	}
-	go func() {
+	stateUpdaterCtx, cancel := context.WithCancel(ctx)
+	go func(ctx context.Context) {
+		defer cancel()
+		log.Trace("state updater starting")
 		for {
-			update := <-propsC
-			log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
-			if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
-				value := update.Value.([]byte)
-				fr, err := NewFrame(value)
-				if err != nil {
-					panic(err)
+			select {
+			case <-ctx.Done():
+				log.Error("Cancel: fridge state loop", ctx.Err())
+				return
+			case update := <-propsC:
+				log.Tracef("--> update name=%s int=%s val=%v", update.Name, update.Interface, update.Value)
+				if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
+					value := update.Value.([]byte)
+					var f Frame
+					// TODO find how to fix fram methods
+					r := bytes.NewReader(value)
+					if err = binary.Read(r, binary.LittleEndian, &f); err != nil {
+						panic(err)
+					}
+					log.Debugf("State: %d", f)
+					log.Info(f)
 				}
-				log.Debugf("State: %d", fr)
-				log.Info(fr)
 			}
 		}
-	}()
+	}(stateUpdaterCtx)
 
 	err = notifChar.StartNotify()
 	if err != nil {
 		return err
 	}
 
+	// so maybe nothing here cancels, it just clones context and does the watchig and writing
+	// <-ctx.Done()
+	log.Trace("watchState returning now")
 	return nil
 }
 
