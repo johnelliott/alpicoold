@@ -19,17 +19,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Pi stuff
-var zeroAdapter = "hci0"
-
-// Characteristics
-var serviceUUID = "00001234-0000-1000-8000-00805f9b34fb"
-var writeableFridgeUUID = "00001235-0000-1000-8000-00805f9b34fb" // Writable
-var readeableFridgeUUID = "00001236-0000-1000-8000-00805f9b34fb" // Read Notify
-var descriptorUUID = "00002902-0000-1000-8000-00805f9b34fb"
-
-// Commands
-var magicPayload = []byte{0xfe, 0xfe, 0x3, 0x1, 0x2, 0x0}
+var (
+	// Pi stuff
+	zeroAdapter = "hci0"
+	// Characteristics
+	serviceUUID         = "00001234-0000-1000-8000-00805f9b34fb"
+	writeableFridgeUUID = "00001235-0000-1000-8000-00805f9b34fb" // Writable
+	readeableFridgeUUID = "00001236-0000-1000-8000-00805f9b34fb" // Read Notify
+	descriptorUUID      = "00002902-0000-1000-8000-00805f9b34fb"
+	// Commands
+	magicPayload = []byte{0xfe, 0xfe, 0x3, 0x1, 0x2, 0x0}
+)
 
 // var maybeUnlockbytes = []byte{0xfe, 0xfe, 0x11, 0x2, 0x1, 0x0, 0x1, 0x0, 0x24, 0x44, 0xfc, 0x4, 0x0, 0x1, 0x0, 0x0, 0xfb, 0x0, 0x4, 0x75}
 // TODO add a factory reset thing gleaned from wireshark
@@ -38,6 +38,7 @@ var (
 	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
 	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
 	timeout     = flag.Duration("timeout", 20*time.Second, "overall program timeout")
+	pollrate    = flag.Duration("pollrate", 2*time.Second, "magic payload polling rate")
 )
 
 func main() {
@@ -57,7 +58,7 @@ func main() {
 	case "trace":
 		log.SetLevel(log.TraceLevel)
 	default:
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.TraceLevel)
 	}
 
 	// https://rafallorenz.com/go/handle-signals-to-graceful-shutdown-http-server/
@@ -294,7 +295,7 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 		defer cancel()
 		log.Trace("magic payload writer starting")
 		// Set up a timer to send the stupid notification payload
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(*pollrate)
 		defer ticker.Stop()
 
 		for {
