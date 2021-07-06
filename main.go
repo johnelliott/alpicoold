@@ -139,6 +139,7 @@ func client(ctx context.Context, adapterID, hwaddr string) error {
 		return err
 	}
 
+	// Kick off listening for state notifications
 	watchStateCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	err = watchState(watchStateCtx, a, dev)
@@ -146,18 +147,18 @@ func client(ctx context.Context, adapterID, hwaddr string) error {
 		return err
 	}
 
-	log.Trace("client blocking and waiting")
+	log.Trace("Client blocking and waiting")
 	// Wait for quit signal
 	select {
 	case <-ctx.Done():
 		log.Error("Cancel client:", ctx.Err())
-		log.Trace("disconnecting from bluetooth")
+		log.Trace("Disconnecting from bluetooth...")
 		err := dev.Disconnect()
 		if err != nil {
 			log.Error(err)
 			panic(err)
 		}
-		log.Trace("disconnected from bluetooth")
+		log.Trace("Disconnected from bluetooth")
 		return nil
 	}
 }
@@ -259,8 +260,11 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 	// Retry
 	if len(list) == 0 {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-time.After(2 * time.Second):
 		}
+		time.Sleep(2 * time.Second)
 		return watchState(ctx, a, dev)
 	}
 	log.Debugf("Found %d characteristics", len(list))
