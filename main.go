@@ -23,6 +23,7 @@ import (
 var zeroAdapter = "hci0"
 
 // Characteristics
+var serviceUUID = "00001234-0000-1000-8000-00805f9b34fb"
 var writeableFridgeUUID = "00001235-0000-1000-8000-00805f9b34fb" // Writable
 var readeableFridgeUUID = "00001236-0000-1000-8000-00805f9b34fb" // Read Notify
 var descriptorUUID = "00002902-0000-1000-8000-00805f9b34fb"
@@ -88,7 +89,8 @@ func main() {
 	defer cancel()
 	err := client(clientContext, *adapterName, *addr)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		os.Exit(1)
 	}
 }
 
@@ -115,7 +117,9 @@ func client(ctx context.Context, adapterID, hwaddr string) error {
 		return fmt.Errorf("SimpleAgent: %s", err)
 	}
 
-	dev, err := findDevice(a, hwaddr)
+	findContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	dev, err := findDevice(findContext, a, hwaddr)
 	if err != nil {
 		return fmt.Errorf("findDevice: %s", err)
 	}
@@ -161,20 +165,22 @@ func client(ctx context.Context, adapterID, hwaddr string) error {
 	}
 }
 
-func findDevice(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
-
-	dev, err := discover(a, hwaddr)
+func findDevice(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
+	discoverCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	dev, err := discover(discoverCtx, a, hwaddr)
 	if err != nil {
 		return nil, err
 	}
 	if dev == nil {
+		cancel()
 		return nil, errors.New("Device not found, is it advertising?")
 	}
 
 	return dev, nil
 }
 
-func discover(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
+func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
 
 	err := a.FlushDevices()
 	if err != nil {
@@ -188,33 +194,35 @@ func discover(a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
 		return nil, err
 	}
 
-	for ev := range discovery {
+	for {
+		select {
+		case ev := <-discovery:
+			dev, err := device.NewDevice1(ev.Path)
+			if err != nil {
+				return nil, err
+			}
 
-		dev, err := device.NewDevice1(ev.Path)
-		if err != nil {
-			return nil, err
+			if dev == nil || dev.Properties == nil {
+				continue
+			}
+
+			p := dev.Properties
+
+			n := p.Alias
+			if p.Name != "" {
+				n = p.Name
+			}
+			log.Debugf("Discovered (%s) %s", n, p.Address)
+
+			if p.Address != hwaddr {
+				continue
+			}
+
+			return dev, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
-
-		if dev == nil || dev.Properties == nil {
-			continue
-		}
-
-		p := dev.Properties
-
-		n := p.Alias
-		if p.Name != "" {
-			n = p.Name
-		}
-		log.Debugf("Discovered (%s) %s", n, p.Address)
-
-		if p.Address != hwaddr {
-			continue
-		}
-
-		return dev, nil
 	}
-
-	return nil, nil
 }
 
 func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error {
