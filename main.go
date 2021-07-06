@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -29,8 +28,9 @@ var readeableFridgeUUID = "00001236-0000-1000-8000-00805f9b34fb" // Read Notify
 var descriptorUUID = "00002902-0000-1000-8000-00805f9b34fb"
 
 // Commands
-var maybeUnlock = "fefe1102000101022444fc0400010000fb000477"
-var initialWrittenChar = "fefe03010200" // Evidently we need to keep sending this to make the notifications keep coming
+var magicPayload = []byte{0xfe, 0xfe, 0x3, 0x1, 0x2, 0x0}
+
+// var maybeUnlockbytes = []byte{0xfe, 0xfe, 0x11, 0x2, 0x1, 0x0, 0x1, 0x0, 0x24, 0x44, 0xfc, 0x4, 0x0, 0x1, 0x0, 0x0, 0xfb, 0x0, 0x4, 0x75}
 // TODO add a factory reset thing gleaned from wireshark
 
 var (
@@ -275,10 +275,6 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 		return err
 	}
 	log.Debugf("Found writable UUID: %v", char.Properties.UUID)
-	data, err := hex.DecodeString(initialWrittenChar)
-	if err != nil {
-		return err
-	}
 
 	// Make a little cancelable pagic payloader
 	writexCtx, cancel := context.WithCancel(ctx)
@@ -295,8 +291,8 @@ func watchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 				log.Error("Cancel: magic payload loop", ctx.Err())
 				return
 			case <-ticker.C:
-				log.Trace("Writing magic payload", data)
-				err = char.WriteValue(data, nil)
+				log.Trace("Writing magic payload", magicPayload)
+				err = char.WriteValue(magicPayload, nil)
 				if err != nil {
 					panic(err)
 				}
