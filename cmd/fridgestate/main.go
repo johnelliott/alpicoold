@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -21,10 +22,11 @@ func main() {
 
 func Format(src []byte) string {
 	dst := make([]byte, hex.DecodedLen(len(src)))
-	n, err := hex.Decode(dst, src)
+	_, err := hex.Decode(dst, src)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return fmt.Sprintf("% 0#x", dst[:n])
+	vals := fmt.Sprintf("% 0#x", dst)
+	return strings.ReplaceAll(vals, " ", ", ")
 }
