@@ -1,5 +1,12 @@
+# demo
+```bash
+sudo LOGLEVEL=debug go run . -timeout 30s -pollrate 1s|jq -c
+```
+
+# links
 <https://pkg.go.dev/github.com/muka/go-bluetooth@v0.0.0-20210508070623-03c23c62f181>
 
+# more
 ```
 sudo dbus-monitor --system "type=error"
 ```
