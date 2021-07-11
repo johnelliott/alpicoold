@@ -15,6 +15,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	// Pi stuff
+	zeroAdapter = "hci0"
+
+	// Characteristics
+	serviceUUID         = "00001234-0000-1000-8000-00805f9b34fb"
+	writeableFridgeUUID = "00001235-0000-1000-8000-00805f9b34fb" // Writable
+	readeableFridgeUUID = "00001236-0000-1000-8000-00805f9b34fb" // Read Notify
+	descriptorUUID      = "00002902-0000-1000-8000-00805f9b34fb"
+)
+
 // Client is the main bluetooth client that looks at the fridge
 func Client(ctx context.Context, adapterID, hwaddr string) error {
 	log.Infof("Discovering %s on %s", hwaddr, adapterID)
@@ -228,8 +239,8 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 				log.Trace("Cancel: magic payload loop", ctx.Err())
 				return
 			case <-ticker.C:
-				log.Trace("Writing magic payload", magicPayload)
-				err = char.WriteValue(magicPayload, nil)
+				log.Trace("Writing magic payload", PingCommand)
+				err = char.WriteValue(PingCommand, nil)
 				if err != nil {
 					panic(err)
 				}
@@ -251,7 +262,7 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 	go func(ctx context.Context) {
 		defer cancel()
 		log.Trace("state updater starting")
-		var f Frame
+		var f StatusReport
 		for {
 			select {
 			case <-ctx.Done():
