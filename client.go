@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -27,7 +28,16 @@ var (
 )
 
 // Client is the main bluetooth client that looks at the fridge
-func Client(ctx context.Context, adapterID, hwaddr string) error {
+func Client(ctx context.Context, wg *sync.WaitGroup, adapterID, hwaddr string) error {
+	wg.Add(1)
+	defer func() {
+		log.Trace("Calling done on main wait group")
+		wg.Done()
+	}()
+
+	// clean up connection on exit
+	defer api.Exit()
+
 	log.Infof("Discovering %s on %s", hwaddr, adapterID)
 
 	a, err := adapter.NewAdapter1FromAdapterID(adapterID)
@@ -50,10 +60,10 @@ func Client(ctx context.Context, adapterID, hwaddr string) error {
 		return fmt.Errorf("SimpleAgent: %s", err)
 	}
 
-	findContext, cancel := context.WithCancel(ctx)
-	defer cancel()
+	findContext, cancelFindDevice := context.WithCancel(ctx)
+	defer cancelFindDevice()
 	dev, err := findDevice(findContext, a, hwaddr)
-	if err != nil {
+	if err != context.Canceled && err != nil {
 		return fmt.Errorf("findDevice: %s", err)
 	}
 
@@ -69,7 +79,9 @@ func Client(ctx context.Context, adapterID, hwaddr string) error {
 		}()
 	*/
 
-	err = connect(dev, ag, adapterID)
+	connectContext, cancelconnectDevice := context.WithCancel(ctx)
+	defer cancelconnectDevice()
+	err = connect(connectContext, dev, ag, adapterID)
 	if err != nil {
 		return err
 	}
@@ -94,11 +106,34 @@ func Client(ctx context.Context, adapterID, hwaddr string) error {
 			return err
 		}
 		log.Trace("Disconnected from bluetooth")
+
 		return nil
 	}
 }
 
 func findDevice(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.Device1, error) {
+	devices, err := a.GetDevices()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, dev := range devices {
+		devProps, err := dev.GetProperties()
+		if err != nil {
+			log.Errorf("Failed to load dev props: %s", err)
+			continue
+		}
+
+		log.Info(devProps.Address)
+		if devProps.Address != hwaddr {
+			continue
+		}
+
+		log.Infof("Found cached device Connected=%t Trusted=%t Paired=%t", devProps.Connected, devProps.Trusted, devProps.Paired)
+		return dev, nil
+	}
+
+	// Start discovery if we don't see ours
 	discoverCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	dev, err := discover(discoverCtx, a, hwaddr)
@@ -125,8 +160,8 @@ func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.
 	dFilter.Transport = "le"
 	a.SetDiscoveryFilter(dFilter.ToMap())
 
-	discovery, cancel, err := api.Discover(a, nil)
-	defer cancel()
+	discovery, cancelDiscovery, err := api.Discover(a, nil)
+	defer cancelDiscovery()
 	if err != nil {
 		return nil, err
 	}
@@ -145,14 +180,14 @@ func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.
 
 			p := dev.Properties
 
-			n := p.Alias
-			if p.Name != "" {
-				n = p.Name
-			}
-			log.Debugf("Discovered (%s) %s", n, p.Address)
+			// n := p.Alias
+			// if p.Name != "" {
+			// 	n = p.Name
+			// }
+			// log.Tracef("Discovered (%s) %s", n, p.Address)
 
 			if p.Address != hwaddr {
-				log.Trace("Found the one we want", p.Address)
+				// log.Trace("Found the one we want", p.Address)
 				continue
 			}
 
@@ -163,7 +198,7 @@ func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.
 	}
 }
 
-func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error {
+func connect(ctx context.Context, dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error {
 
 	props, err := dev.GetProperties()
 	if err != nil {
@@ -187,6 +222,7 @@ func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error
 				return fmt.Errorf("Connect failed: %s", err)
 			}
 		}
+		log.Trace("Connected to device")
 	}
 
 	return nil
@@ -295,6 +331,37 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 	// <-ctx.Done()
 	log.Trace("watchState returning now")
 	return nil
+}
+
+// FakeClient is an imaginary client for homekit preparation
+func FakeClient(ctx context.Context, wg *sync.WaitGroup, responses chan int) {
+	log.Trace("FakeClient start")
+	// Start some stuff
+	time.Sleep(time.Second * 1)
+	log.Trace("FakeClient setup tasks done")
+	tic := time.NewTicker(700 * time.Millisecond)
+
+	log.Trace("FakeClient starting wait/block/exit")
+
+	go func() {
+		wg.Add(1)
+		defer func() {
+			log.Trace("Fake client calling done on main wait group")
+			wg.Done()
+		}()
+		log.Trace("Fake client looping now")
+		for {
+			select {
+			case <-ctx.Done():
+				log.Trace("FakeClient ctx canceled")
+				return
+			case <-tic.C:
+				log.Trace("Sending fake update")
+				responses <- 100
+				log.Trace("Fake update sent")
+			}
+		}
+	}()
 }
 
 /*

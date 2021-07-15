@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -38,7 +39,7 @@ func main() {
 	case "trace":
 		log.SetLevel(log.TraceLevel)
 	default:
-		log.SetLevel(log.TraceLevel)
+		// log.SetLevel(log.DebugLevel)
 	}
 
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -47,13 +48,18 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
+	// Subtask quit response channels
+	wg := sync.WaitGroup{}
+
+	// Subtask contexts
 	clientContext, cancelClient := context.WithCancel(ctx)
 	defer cancelClient()
+	fakeClientContext, cancelFakeClientContext := context.WithCancel(ctx)
+	defer cancelFakeClientContext()
 
-	// https://rafallorenz.com/go/handle-signals-to-graceful-shutdown-http-server/
-
-	// Listen for control-c
+	// Listen for control-c subtask
 	go func() {
+		// https://rafallorenz.com/go/handle-signals-to-graceful-shutdown-http-server/
 		// Set up channel on which to send signal notifications.
 		// We must use a buffered channel or risk missing the signal
 		// if we're not ready to receive when addthe signal is sent.
@@ -67,24 +73,36 @@ func main() {
 		log.Trace("Listening for signals")
 		s := <-sig
 		log.Debug("Got signal:", s)
-		cancelClient()
+		cancel()
 	}()
+
+	fakeResultsC := make(chan int)
+	go FakeClient(fakeClientContext, &wg, fakeResultsC)
 
 	// Kick off bluetooth client
 	go func() {
 		log.Trace("Launching client")
-		err := Client(clientContext, *adapterName, *addr)
-		if err != nil {
+		err := Client(clientContext, &wg, *adapterName, *addr)
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			log.Debug("Client: ", err)
+		} else if err != nil {
 			log.Error(err)
-			os.Exit(1)
 		}
-		cancel()
+		log.Trace("Client done")
+		// cancel() main context is already canceled or things are done
 	}()
 
 	log.Trace("Main waiting...")
-	select {
-	case <-ctx.Done():
-		log.Trace("Main context canceled")
-		return
+	for {
+		select {
+		case r := <-fakeResultsC:
+			log.Infof("FakeClient result: %v\n", r)
+		case <-ctx.Done():
+			log.Trace("Main context canceled")
+			// Clean up others
+			wg.Wait()
+			log.Trace("Wait group done waiting")
+			return
+		}
 	}
 }
