@@ -98,7 +98,7 @@ func Client(ctx context.Context, wg *sync.WaitGroup, statusC chan StatusReport, 
 	// Wait for quit signal
 	select {
 	case <-ctx.Done():
-		log.Trace("Cancel: client", ctx.Err())
+		log.Tracef("Cancel: bluetooth client: %v", ctx.Err())
 		log.Trace("Disconnecting from bluetooth...")
 		err := dev.Disconnect()
 		if err != nil {

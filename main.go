@@ -15,8 +15,8 @@ import (
 var (
 	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
 	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	timeout     = flag.Duration("timeout", 20*time.Second, "overall program timeout")
-	pollrate    = flag.Duration("pollrate", 2*time.Second, "magic payload polling rate")
+	timeout     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
+	pollrate    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
 )
 
 func main() {
@@ -82,14 +82,14 @@ func main() {
 
 	// Kick off bluetooth client
 	go func() {
-		log.Trace("Launching client")
+		log.Debug("Launching client")
 		err := Client(clientContext, &wg, fridgeStatusC, *adapterName, *addr)
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			log.Debug("Client: ", err)
 		} else if err != nil {
 			log.Error(err)
 		}
-		log.Trace("Client done")
+		log.Debug("Client done")
 		// cancel() main context is already canceled or things are done
 	}()
 
@@ -105,7 +105,18 @@ func main() {
 		// case r := <-fakeResultsC:
 		// 	log.Infof("FakeClient result: %v\n", r)
 		case <-ctx.Done():
-			log.Trace("Main context canceled")
+			log.Debug("Main context canceled")
+
+			// bail hard if this takes too long
+			go func() {
+				finalTO := 30 * time.Second
+				log.Debugf("Waiting %v then exiting", finalTO)
+				time.AfterFunc(finalTO, func() {
+					panic("Took too long to exit\n")
+				})
+			}()
+
+			log.Debug("Waiting for wait group...")
 			// Clean up others
 			wg.Wait()
 			log.Trace("Wait group done waiting")

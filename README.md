@@ -34,4 +34,13 @@ turning on the compressor by opening, then just watching traffic
              ^ this is the temp, in farenheit degrees in ex, so 43 is 67F
 and the temp is the 11th byte of the notification payload
 
+# from image hub
 
+```json
+{
+    "service:status": "sudo systemctl status nginx image-hub-*",
+    "service:restart": "sudo systemctl restart image-hub-etl image-hub-www",
+    "service:stop": "sudo systemctl stop image-hub-www.service && sudo systemctl stop image-hub-etl.service",
+    "service:start": "sudo systemctl start image-hub-www.service && sudo systemctl start image-hub-etl.service"
+}
+```
