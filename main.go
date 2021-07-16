@@ -12,9 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// var maybeUnlockbytes = []byte{0xfe, 0xfe, 0x11, 0x2, 0x1, 0x0, 0x1, 0x0, 0x24, 0x44, 0xfc, 0x4, 0x0, 0x1, 0x0, 0x0, 0xfb, 0x0, 0x4, 0x75}
-// TODO add a factory reset thing gleaned from wireshark
-
 var (
 	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
 	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
@@ -61,6 +58,9 @@ func main() {
 	HKClientContext, cancelHKClientContext := context.WithCancel(ctx)
 	defer cancelHKClientContext()
 
+	// Subtask comm channels
+	fridgeStatusC := make(chan StatusReport)
+
 	// Listen for control-c subtask
 	go func() {
 		// https://rafallorenz.com/go/handle-signals-to-graceful-shutdown-http-server/
@@ -80,12 +80,6 @@ func main() {
 		cancel()
 	}()
 
-	// fakeResultsC := make(chan int)
-	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
-
-	fridgeStatusC := make(chan StatusReport)
-	go HKClient(HKClientContext, &wg, fridgeStatusC)
-
 	// Kick off bluetooth client
 	go func() {
 		log.Trace("Launching client")
@@ -98,6 +92,12 @@ func main() {
 		log.Trace("Client done")
 		// cancel() main context is already canceled or things are done
 	}()
+
+	// Kick off homekit client
+	go HKClient(HKClientContext, &wg, fridgeStatusC)
+
+	// fakeResultsC := make(chan int)
+	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
 
 	log.Trace("Main waiting...")
 	for {
