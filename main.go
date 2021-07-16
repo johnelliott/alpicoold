@@ -39,7 +39,7 @@ func main() {
 	case "trace":
 		log.SetLevel(log.TraceLevel)
 	default:
-		// log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.TraceLevel)
 	}
 
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -54,8 +54,12 @@ func main() {
 	// Subtask contexts
 	clientContext, cancelClient := context.WithCancel(ctx)
 	defer cancelClient()
-	fakeClientContext, cancelFakeClientContext := context.WithCancel(ctx)
-	defer cancelFakeClientContext()
+
+	// fakeClientContext, cancelFakeClientContext := context.WithCancel(ctx)
+	// defer cancelFakeClientContext()
+
+	HKClientContext, cancelHKClientContext := context.WithCancel(ctx)
+	defer cancelHKClientContext()
 
 	// Listen for control-c subtask
 	go func() {
@@ -76,13 +80,16 @@ func main() {
 		cancel()
 	}()
 
-	fakeResultsC := make(chan int)
-	go FakeClient(fakeClientContext, &wg, fakeResultsC)
+	// fakeResultsC := make(chan int)
+	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
+
+	fridgeStatusC := make(chan StatusReport)
+	go HKClient(HKClientContext, &wg, fridgeStatusC)
 
 	// Kick off bluetooth client
 	go func() {
 		log.Trace("Launching client")
-		err := Client(clientContext, &wg, *adapterName, *addr)
+		err := Client(clientContext, &wg, fridgeStatusC, *adapterName, *addr)
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			log.Debug("Client: ", err)
 		} else if err != nil {
@@ -95,8 +102,8 @@ func main() {
 	log.Trace("Main waiting...")
 	for {
 		select {
-		case r := <-fakeResultsC:
-			log.Infof("FakeClient result: %v\n", r)
+		// case r := <-fakeResultsC:
+		// 	log.Infof("FakeClient result: %v\n", r)
 		case <-ctx.Done():
 			log.Trace("Main context canceled")
 			// Clean up others

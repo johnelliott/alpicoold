@@ -1,6 +1,9 @@
 # demo
 ```bash
+sudo btmon
+sudo bluetoothctl
 sudo LOGLEVEL=debug go run . -timeout 30s -pollrate 1s|jq -c
+sudo LOGLEVEL=panic go run . -timeout 1m -pollrate 1s|jq .Temp
 ```
 
 # links

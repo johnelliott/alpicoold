@@ -28,7 +28,7 @@ var (
 )
 
 // Client is the main bluetooth client that looks at the fridge
-func Client(ctx context.Context, wg *sync.WaitGroup, adapterID, hwaddr string) error {
+func Client(ctx context.Context, wg *sync.WaitGroup, statusC chan StatusReport, adapterID, hwaddr string) error {
 	wg.Add(1)
 	defer func() {
 		log.Trace("Calling done on main wait group")
@@ -89,7 +89,7 @@ func Client(ctx context.Context, wg *sync.WaitGroup, adapterID, hwaddr string) e
 	// Kick off listening for state notifications
 	watchStateCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	err = WatchState(watchStateCtx, a, dev)
+	err = WatchState(watchStateCtx, statusC, a, dev)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func connect(ctx context.Context, dev *device.Device1, ag *agent.SimpleAgent, ad
 // or maybe not because we need to send the version number to get notifications
 
 // Watchstate is what we came to do
-func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) error {
+func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter.Adapter1, dev *device.Device1) error {
 	log.Trace("watchState running")
 
 	list, err := dev.GetCharacteristics()
@@ -248,7 +248,7 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 		case <-time.After(2 * time.Second):
 		}
 		time.Sleep(2 * time.Second)
-		return WatchState(ctx, a, dev)
+		return WatchState(ctx, statusReportC, a, dev)
 	}
 	log.Debugf("Found %d characteristics", len(list))
 
@@ -312,6 +312,10 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 					if err != nil {
 						log.Error("Other frame UnmarshalBinary", err)
 					}
+
+					// Send status to rest of app
+					go func() { statusReportC <- f }()
+
 					j, err := f.MarshalJSON()
 					if err != nil {
 						log.Error("Failed marshal json", err)
@@ -332,45 +336,3 @@ func WatchState(ctx context.Context, a *adapter.Adapter1, dev *device.Device1) e
 	log.Trace("watchState returning now")
 	return nil
 }
-
-// FakeClient is an imaginary client for homekit preparation
-func FakeClient(ctx context.Context, wg *sync.WaitGroup, responses chan int) {
-	log.Trace("FakeClient start")
-	// Start some stuff
-	time.Sleep(time.Second * 1)
-	log.Trace("FakeClient setup tasks done")
-	tic := time.NewTicker(700 * time.Millisecond)
-
-	log.Trace("FakeClient starting wait/block/exit")
-
-	go func() {
-		wg.Add(1)
-		defer func() {
-			log.Trace("Fake client calling done on main wait group")
-			wg.Done()
-		}()
-		log.Trace("Fake client looping now")
-		for {
-			select {
-			case <-ctx.Done():
-				log.Trace("FakeClient ctx canceled")
-				return
-			case <-tic.C:
-				log.Trace("Sending fake update")
-				responses <- 100
-				log.Trace("Fake update sent")
-			}
-		}
-	}()
-}
-
-/*
-// TODO state setting
-// This is probably full state set
-data, err := hex.DecodeString(maybeUnlock)
-if err != nil {
-	return err
-}
-// log.Trace("Sending unlock", data)
-char.WriteValue(data, nil)
-*/
