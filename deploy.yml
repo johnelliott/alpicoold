@@ -1,0 +1,12 @@
+- hosts: campi
+  vars:
+    user: pi
+    servicename: alpicoold
+    loglevel: debug
+    pollrate_sec: 2
+    timeout_sec: 1800
+    storagepath: /var/local/homekitdb
+    fridge_addr: # leave blank
+    adapter_name: # leave blank
+  roles:
+  - alpicoold
