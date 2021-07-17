@@ -11,7 +11,7 @@ import (
 )
 
 // HKClient is an imaginary client for homekit preparation
-func HKClient(ctx context.Context, wg *sync.WaitGroup, fridgeStatus chan StatusReport) {
+func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridgeStatus chan StatusReport) {
 	wg.Add(1)
 	defer func() {
 		log.Trace("HK client calling done on main wait group")
@@ -74,7 +74,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridgeStatus chan StatusR
 		th.Thermostat.TargetTemperature.SetValue(nt)
 	})
 
-	config := hc.Config{Pin: "80000000", StoragePath: "./homekitdb"}
+	config := hc.Config{Pin: "80000000", StoragePath: storagePath}
 	t, err := hc.NewIPTransport(config, th.Accessory, lockButton.Accessory, onButton.Accessory)
 	if err != nil {
 		log.Error(err)

@@ -266,7 +266,7 @@ func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter
 		defer cancel()
 		log.Trace("magic payload writer starting")
 		// Set up a timer to send the stupid notification payload
-		ticker := time.NewTicker(*pollrate)
+		ticker := time.NewTicker(pollrate)
 		defer ticker.Stop()
 
 		for {

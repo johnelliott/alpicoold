@@ -9,18 +9,39 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-acme/lego/platform/config/env"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	adapterName = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
-	addr        = flag.String("addr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	timeout     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
-	pollrate    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	// Flags
+	adapterNameF = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
+	addrF        = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
+	storagePathF = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
+	timeoutF     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
+	pollrateF    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+
+	// App settings
+	pollrate    time.Duration
+	timeout     time.Duration
+	addr        string
+	adapterName string
 )
 
 func main() {
 	flag.Parse()
+	log.Warn("timeout", timeout)
+	log.Warn("pollrate", pollrate)
+
+	// Use env to override app settings
+	timeout = env.GetOrDefaultSecond("TIMEOUT_SEC", *timeoutF)
+	pollrate = env.GetOrDefaultSecond("POLLRATE_SEC", *pollrateF)
+	adapterName = env.GetOrDefaultString("ADAPTER_NAME", *adapterNameF)
+	addr = env.GetOrDefaultString("FRIDGE_ADDR", *addrF)
+	storagePath := env.GetOrDefaultString("STORAGE_PATH", *storagePathF)
+
+	log.Warn("timeout", timeout)
+	log.Warn("pollrate", pollrate)
 
 	// env vars
 	LOGLEVEL := os.Getenv("LOGLEVEL")
@@ -39,10 +60,10 @@ func main() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	// log.SetFormatter(&log.JSONFormatter{})
+	log.SetFormatter(&log.JSONFormatter{})
 
 	// main context
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// Subtask quit response channels
@@ -70,6 +91,7 @@ func main() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(
 			sig,
+			syscall.SIGTERM,
 			syscall.SIGHUP,  // kill -SIGHUP XXXX
 			syscall.SIGINT,  // kill -SIGINT XXXX or Ctrl+c
 			syscall.SIGQUIT, // kill -SIGQUIT XXXX
@@ -83,18 +105,18 @@ func main() {
 	// Kick off bluetooth client
 	go func() {
 		log.Debug("Launching client")
-		err := Client(clientContext, &wg, fridgeStatusC, *adapterName, *addr)
+		err := Client(clientContext, &wg, fridgeStatusC, adapterName, addr)
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			log.Debug("Client: ", err)
 		} else if err != nil {
 			log.Error(err)
 		}
 		log.Debug("Client done")
-		// cancel() main context is already canceled or things are done
+		cancel() // M
 	}()
 
 	// Kick off homekit client
-	go HKClient(HKClientContext, &wg, fridgeStatusC)
+	go HKClient(HKClientContext, &wg, storagePath, fridgeStatusC)
 
 	// fakeResultsC := make(chan int)
 	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
@@ -109,9 +131,9 @@ func main() {
 
 			// bail hard if this takes too long
 			go func() {
-				finalTO := 30 * time.Second
-				log.Debugf("Waiting %v then exiting", finalTO)
-				time.AfterFunc(finalTO, func() {
+				theFinalCountdown := 30 * time.Second
+				log.Debugf("Waiting %v then exiting", theFinalCountdown)
+				time.AfterFunc(theFinalCountdown, func() {
 					panic("Took too long to exit\n")
 				})
 			}()

@@ -1,19 +1,25 @@
-# demo
+# running
+See the makefile
+
+
+```bash
+sudo LOGLEVEL=debug go run . -timeout 30s -pollrate 1s|jq -c
+sudo LOGLEVEL=panic go run . -timeout 1m -pollrate 1s|jq .Temp
+make journal
+```
+
+# Monitoring Bluetooth
 ```bash
 sudo btmon
 sudo bluetoothctl
-sudo LOGLEVEL=debug go run . -timeout 30s -pollrate 1s|jq -c
-sudo LOGLEVEL=panic go run . -timeout 1m -pollrate 1s|jq .Temp
+sudo dbus-monitor --system "type=error"
 ```
 
 # links
 <https://pkg.go.dev/github.com/muka/go-bluetooth@v0.0.0-20210508070623-03c23c62f181>
 
-# more
-```
-sudo dbus-monitor --system "type=error"
-```
 
+# random other usefull stuff
 "fefe1102000101022444fc0400010000fb000477"
 unlock, 36 deg, gt
 
@@ -33,14 +39,3 @@ turning on the compressor by opening, then just watching traffic
 0010   fb 00 43 64 0d 02 05 51
              ^ this is the temp, in farenheit degrees in ex, so 43 is 67F
 and the temp is the 11th byte of the notification payload
-
-# from image hub
-
-```json
-{
-    "service:status": "sudo systemctl status nginx image-hub-*",
-    "service:restart": "sudo systemctl restart image-hub-etl image-hub-www",
-    "service:stop": "sudo systemctl stop image-hub-www.service && sudo systemctl stop image-hub-etl.service",
-    "service:start": "sudo systemctl start image-hub-www.service && sudo systemctl start image-hub-etl.service"
-}
-```
