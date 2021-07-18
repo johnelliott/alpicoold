@@ -4,7 +4,7 @@
     servicename: alpicoold
     loglevel: debug
     pollrate_sec: 2
-    timeout_sec: 1800
+    timeout_sec: 21600
     storagepath: /var/local/homekitdb
     fridge_addr: # leave blank
     adapter_name: # leave blank
