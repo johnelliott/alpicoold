@@ -47,7 +47,7 @@ type Fridge struct {
 func (f *Fridge) MonitorMu() {
 	// TODO add canceling
 	for r := range f.inlet {
-		log.Debug("Fridge got status update", r.Temp)
+		log.Trace("Fridge got status update", r.Temp)
 		f.mu.Lock()
 		f.status = r
 		f.mu.Unlock()
@@ -260,7 +260,7 @@ func main() {
 				})
 			}()
 
-			log.Debug("Waiting for wait group...")
+			log.Trace("Waiting for wait group...")
 			// Clean up others
 			wg.Wait()
 			log.Trace("Wait group done waiting")

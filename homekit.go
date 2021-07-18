@@ -78,7 +78,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	th.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(newTempRawCelcius float64) {
 		// Round to something reasonable
 		newTemp := math.Round(newTempRawCelcius)
-		log.Debugf("New TargetTemperature: %v %v %v", newTempRawCelcius, newTemp, byte(newTemp))
+		log.Tracef("New TargetTemperature: %v %v %v", newTempRawCelcius, newTemp, byte(newTemp))
 		fridge.tempSettingsC <- newTemp
 		// just set it for them for now, do this via commands later
 		// th.Thermostat.TargetTemperature.SetValue(newTemp)
@@ -106,7 +106,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 				return
 			case <-ticker.C:
 				s := fridge.GetStatusReport()
-				log.Debugf("Homekit got fridge status %v", s.Temp)
+				log.Tracef("Homekit got fridge status %v", s.Temp)
 				var t float64
 				var tempSetting float64
 				if s.E5 == 1 {
