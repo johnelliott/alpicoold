@@ -21,6 +21,8 @@ var (
 	timeoutF     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
 	pollrateF    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
 
+	initialFridgeSettings = Settings{}
+
 	// App settings
 	pollrate    time.Duration
 	timeout     time.Duration
@@ -92,8 +94,43 @@ func (f *Fridge) SetLocked(lockIt bool) {
 func (f *Fridge) GetStatusReport() StatusReport {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	log.Debug("getting status report", f.status.Temp)
+	log.Trace("getting status report", f.status.Temp)
 	return f.status
+}
+
+func (f *Fridge) CycleCompressor(onTime time.Duration) {
+	log.Info("Fridge quick compressor cycle")
+	// Capture settings
+	s := f.GetStatusReport().Settings
+	// wait if we see that the struct is just initialized
+	// TODO do this better, this is a lazy way
+	if s == initialFridgeSettings {
+		log.Trace("Waiting to see some initialized data")
+		time.Sleep(2 * time.Second)
+		f.CycleCompressor(onTime)
+		return
+	}
+	prevSettings := s
+	// Turn down temp
+	if s.On != 1 {
+		// Turn on
+		s.On = 1
+		// Choose freezing
+		if s.E5 != 0 {
+			s.TempSet = 0xff - 10 // minus 10 c
+		} else {
+			s.TempSet = 0 // TODO fix this to C or f
+		}
+		log.Tracef("Fridge going to cold setting: On=%v TempSet=%v", s.On, s.TempSet)
+		// block writing while we're cycling
+		f.settingsC <- s
+		// TODO see if there's a way to avoid this 30s window where things could get clobbered
+		// time after func turn off
+		time.AfterFunc(onTime, func() {
+			log.Tracef("Fridge going back to prev settings: %v", prevSettings.TempSet)
+			f.settingsC <- prevSettings
+		})
+	}
 }
 
 func main() {
@@ -174,6 +211,17 @@ func main() {
 		s := <-sig
 		log.Debug("Got signal:", s)
 		cancel()
+	}()
+
+	go func() {
+		log.Debug("Fridge interval turnon/turnoff start")
+		// cycle on startup of daemon
+		go fridge.CycleCompressor(15 * time.Second)
+		ticker := time.NewTicker(8 * time.Hour)
+		for range ticker.C {
+			log.Debug("Fridge compressor cycle tick")
+			go fridge.CycleCompressor(15 * time.Second)
+		}
 	}()
 
 	// Kick off bluetooth client
