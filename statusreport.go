@@ -20,7 +20,6 @@ type StatusReport struct {
 	Checksum uint16
 }
 
-// TODO verify this is correct
 func (c *StatusReport) CRC() uint16 {
 	// KISS checksum
 	// sum of bytes before CRC

@@ -38,14 +38,3 @@ func FakeClient(ctx context.Context, wg *sync.WaitGroup, responses chan int) {
 		}
 	}()
 }
-
-/*
-// TODO state setting
-// This is probably full state set
-data, err := hex.DecodeString(maybeUnlock)
-if err != nil {
-	return err
-}
-// log.Trace("Sending unlock", data)
-char.WriteValue(data, nil)
-*/

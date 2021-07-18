@@ -36,7 +36,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	lockButton := accessory.NewSwitch(infoLockButton)
 	lockButton.Switch.On.OnValueRemoteUpdate(fridge.SetLocked)
 
-	// Set up on button
+	// On button
 	infoOnButton := accessory.Info{
 		Name:         "On K25",
 		SerialNumber: "1",
@@ -48,7 +48,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	onButton := accessory.NewSwitch(infoOnButton)
 	onButton.Switch.On.OnValueRemoteUpdate(fridge.SetOn)
 
-	// Set up thermostat and command callbacks
+	// Thermostat
 	infoThermo := accessory.Info{
 		Name: "Alpicool K25",
 		// SerialNumber:     "1",
@@ -57,6 +57,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 		// FirmwareRevision: "0.0.1",
 		// ID:               2,
 	}
+	// TODO see if I can set upper and lower bounds properly
 	th := accessory.NewThermostat(infoThermo, FtoC(40), FtoC(-10), FtoC(99), 1)
 	th.Thermostat.CurrentHeatingCoolingState.SetValue(2)
 	th.Thermostat.TargetHeatingCoolingState.SetValue(0)
@@ -127,16 +128,16 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 		}
 	}()
 
-	// wait for and trash one value
-	// TODO see if I can remove this to gain back 1 second
-	// <-fridgeStatus
 	// Start homekit transport
 	t.Start()
 }
 
+// FtoC converts
 func FtoC(f float64) float64 {
 	return (f - 32) * 5 / 9
 }
+
+// CtoF converts
 func CtoF(f float64) float64 {
 	return f*9/5 + 32
 }
