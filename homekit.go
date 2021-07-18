@@ -48,6 +48,18 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	onButton := accessory.NewSwitch(infoOnButton)
 	onButton.Switch.On.OnValueRemoteUpdate(fridge.SetOn)
 
+	// EcoMode button
+	infoEcoModeButton := accessory.Info{
+		Name:         "EcoMode K25",
+		SerialNumber: "1",
+		Manufacturer: "johnelliott.org",
+		Model:        "WT-0001 Bridge",
+		// FirmwareRevision: "0.0.1",
+		// ID:               1,
+	}
+	ecoModeButton := accessory.NewSwitch(infoEcoModeButton)
+	ecoModeButton.Switch.On.OnValueRemoteUpdate(fridge.SetEcoMode)
+
 	// Thermostat
 	infoThermo := accessory.Info{
 		Name: "Alpicool K25",
@@ -73,7 +85,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	})
 
 	config := hc.Config{Pin: "80000000", StoragePath: storagePath}
-	t, err := hc.NewIPTransport(config, th.Accessory, lockButton.Accessory, onButton.Accessory)
+	t, err := hc.NewIPTransport(config, th.Accessory, lockButton.Accessory, ecoModeButton.Accessory, onButton.Accessory)
 	if err != nil {
 		log.Error(err)
 	}
@@ -107,6 +119,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 
 				// switches/buttons
 				onButton.Switch.On.SetValue(s.On == 1)
+				ecoModeButton.Switch.On.SetValue(s.EcoMode == 1)
 				lockButton.Switch.On.SetValue(s.Locked == 1)
 				// Required
 				if s.On == 1 {
@@ -118,8 +131,10 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 				}
 				th.Thermostat.CurrentTemperature.SetValue(t)
 				th.Thermostat.TargetTemperature.SetValue(tempSetting)
-				// th.Thermostat.TemperatureDisplayUnits.SetValue(int(s.E5)) // 0=C, 1=F
 				th.Thermostat.TemperatureDisplayUnits.SetValue(1) // 0=C, 1=F
+
+				// TODO see if this is settable this often per the spec
+				// th.Thermostat.TemperatureDisplayUnits.SetValue(int(s.E5)) // 0=C, 1=F
 
 				// Optional
 				// th.Thermostat.CurrentHeatingCoolingState.SetMaxValue(int(s.E1))

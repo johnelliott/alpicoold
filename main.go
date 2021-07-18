@@ -54,7 +54,7 @@ func (f *Fridge) MonitorMu() {
 
 // SetOn Sends the fridge state to the fridge
 func (f *Fridge) SetOn(turnOn bool) {
-	log.Warnf("Fridge SendSettings stub: %v", turnOn)
+	log.Warnf("SetOn: %v", turnOn)
 	s := f.GetStatusReport().Settings
 	if turnOn {
 		s.On = 1
@@ -64,9 +64,21 @@ func (f *Fridge) SetOn(turnOn bool) {
 	f.settingsC <- s
 }
 
+// SetEcoMode Sends the fridge state to the fridge
+func (f *Fridge) SetEcoMode(useEcoMode bool) {
+	log.Warnf("SetEcoMode: %v", useEcoMode)
+	s := f.GetStatusReport().Settings
+	if useEcoMode {
+		s.EcoMode = 1
+	} else {
+		s.EcoMode = 0
+	}
+	f.settingsC <- s
+}
+
 // SetLocked Sends the fridge state to the fridge
 func (f *Fridge) SetLocked(lockIt bool) {
-	log.Warnf("Fridge SendSettings stub: %v", lockIt)
+	log.Warnf("SetLocked: %v", lockIt)
 	s := f.GetStatusReport().Settings
 	if lockIt {
 		s.Locked = 1
