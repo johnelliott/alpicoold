@@ -28,6 +28,43 @@ var (
 	adapterName string
 )
 
+type tempSettingsC chan float64
+type settingsC chan SetStateCommand
+
+// Fridge represents a full fridge state
+type Fridge struct {
+	mu            sync.RWMutex
+	status        StatusReport
+	inlet         chan StatusReport
+	tempSettingsC tempSettingsC
+	settingsC     settingsC
+}
+
+// MonitorMu routine, mutex based
+func (f *Fridge) MonitorMu() {
+	// TODO add canceling
+	for r := range f.inlet {
+		log.Debug("Fridge got status update", r.Temp)
+		f.mu.Lock()
+		f.status = r
+		f.mu.Unlock()
+	}
+}
+
+// SendSettings Sends the fridge state to the fridge
+func (f *Fridge) SendSettings(r Settings) {
+	log.Warnf("Fridge SendSettings stub: %v", r)
+
+}
+
+// GetStatusReport gets the fridge state
+func (f *Fridge) GetStatusReport() StatusReport {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	log.Debug("getting status report", f.status.Temp)
+	return f.status
+}
+
 func main() {
 	flag.Parse()
 	log.Warn("timeout", timeout)
@@ -79,8 +116,14 @@ func main() {
 	HKClientContext, cancelHKClientContext := context.WithCancel(ctx)
 	defer cancelHKClientContext()
 
-	// Subtask comm channels
-	fridgeStatusC := make(chan StatusReport)
+	// Data setup
+	fridge := Fridge{
+		inlet:         make(chan StatusReport),
+		tempSettingsC: make(tempSettingsC),
+		settingsC:     make(chan SetStateCommand),
+	}
+	// Collect updates into status
+	go func() { fridge.MonitorMu() }()
 
 	// Listen for control-c subtask
 	go func() {
@@ -105,7 +148,7 @@ func main() {
 	// Kick off bluetooth client
 	go func() {
 		log.Debug("Launching client")
-		err := Client(clientContext, &wg, fridgeStatusC, adapterName, addr)
+		err := Client(clientContext, &wg, &fridge, adapterName, addr)
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			log.Debug("Client: ", err)
 		} else if err != nil {
@@ -116,7 +159,7 @@ func main() {
 	}()
 
 	// Kick off homekit client
-	go HKClient(HKClientContext, &wg, storagePath, fridgeStatusC)
+	go HKClient(HKClientContext, &wg, storagePath, &fridge)
 
 	// fakeResultsC := make(chan int)
 	// go FakeClient(fakeClientContext, &wg, fakeResultsC)

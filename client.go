@@ -28,7 +28,7 @@ var (
 )
 
 // Client is the main bluetooth client that looks at the fridge
-func Client(ctx context.Context, wg *sync.WaitGroup, statusC chan StatusReport, adapterID, hwaddr string) error {
+func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, hwaddr string) error {
 	wg.Add(1)
 	defer func() {
 		log.Trace("Calling done on main wait group")
@@ -86,10 +86,12 @@ func Client(ctx context.Context, wg *sync.WaitGroup, statusC chan StatusReport, 
 		return err
 	}
 
+	// Kick off listening for commands
+
 	// Kick off listening for state notifications
 	watchStateCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	err = WatchState(watchStateCtx, statusC, a, dev)
+	err = WatchState(watchStateCtx, fridge, a, dev)
 	if err != nil {
 		return err
 	}
@@ -232,7 +234,7 @@ func connect(ctx context.Context, dev *device.Device1, ag *agent.SimpleAgent, ad
 // or maybe not because we need to send the version number to get notifications
 
 // Watchstate is what we came to do
-func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter.Adapter1, dev *device.Device1) error {
+func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *device.Device1) error {
 	log.Trace("watchState running")
 
 	list, err := dev.GetCharacteristics()
@@ -248,7 +250,7 @@ func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter
 		case <-time.After(2 * time.Second):
 		}
 		time.Sleep(2 * time.Second)
-		return WatchState(ctx, statusReportC, a, dev)
+		return WatchState(ctx, fridge, a, dev)
 	}
 	log.Debugf("Found %d characteristics", len(list))
 
@@ -264,7 +266,7 @@ func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter
 	writexCtx, cancel := context.WithCancel(ctx)
 	go func(writexCtx context.Context) {
 		defer cancel()
-		log.Trace("magic payload writer starting")
+		log.Trace("BT attribute writer starting")
 		// Set up a timer to send the stupid notification payload
 		ticker := time.NewTicker(pollrate)
 		defer ticker.Stop()
@@ -274,6 +276,26 @@ func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter
 			case <-ctx.Done():
 				log.Trace("Cancel: magic payload loop", ctx.Err())
 				return
+			case settings := <-fridge.settingsC:
+				log.Warn("Here be the new settings for the fridge from the user", settings)
+			case temp := <-fridge.tempSettingsC:
+				log.Info("Got temp setting!", temp)
+				// Convert to current fridge temperature based on settings as
+				// the protocol requires
+				var tempC float64
+				if fridge.GetStatusReport().E5 == 1 {
+					tempC = CtoF(temp)
+				}
+				// Form command bytes
+				c, err := NewSetTempCommand(byte(tempC))
+				if err != nil {
+					panic(err)
+				}
+				log.Info("Writing set temp payload", c)
+				err = char.WriteValue(c, nil)
+				if err != nil {
+					panic(err)
+				}
 			case <-ticker.C:
 				log.Trace("Writing magic payload", PingCommand)
 				err = char.WriteValue(PingCommand, nil)
@@ -312,15 +334,8 @@ func WatchState(ctx context.Context, statusReportC chan StatusReport, a *adapter
 					if err != nil {
 						log.Error("Other frame UnmarshalBinary", err)
 					}
-
 					// Send status to rest of app
-					go func() { statusReportC <- f }()
-
-					j, err := f.MarshalJSON()
-					if err != nil {
-						log.Error("Failed marshal json", err)
-					}
-					fmt.Printf("%s\n", j)
+					fridge.inlet <- f
 				}
 			}
 		}

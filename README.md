@@ -1,5 +1,9 @@
 # running
 See the makefile
+#deploying
+
+#improvements
+- the client should not know about fridge things, it should just send and rx data to those endpoints, keep NewCOmmand out of it
 
 
 ```bash

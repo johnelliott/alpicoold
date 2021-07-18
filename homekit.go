@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"math"
 	"sync"
+	"time"
 
 	"github.com/brutella/hc"
 	"github.com/brutella/hc/accessory"
@@ -11,7 +13,7 @@ import (
 )
 
 // HKClient is an imaginary client for homekit preparation
-func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridgeStatus chan StatusReport) {
+func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridge *Fridge) {
 	wg.Add(1)
 	defer func() {
 		log.Trace("HK client calling done on main wait group")
@@ -34,6 +36,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	lockButton := accessory.NewSwitch(infoLockButton)
 	lockButton.Switch.On.OnValueRemoteUpdate(func(on bool) {
 		log.Warnf("User flip lock switch %v\n", on)
+		fridge.SendSettings(Settings{})
 		// just set it for them for now, do this via commands later
 		lockButton.Switch.On.SetValue(on)
 	})
@@ -68,10 +71,13 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	th.Thermostat.TargetHeatingCoolingState.SetValue(0)
 	th.Thermostat.TemperatureDisplayUnits.SetValue(1) // 0=C, 1=F
 
-	th.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(nt float64) {
-		log.Warnf("User wants new temp %v\n", CtoF(nt))
+	th.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(newTempRawCelcius float64) {
+		// Round to something reasonable
+		newTemp := math.Round(newTempRawCelcius)
+		log.Debugf("New TargetTemperature: %v %v %v", newTempRawCelcius, newTemp, byte(newTemp))
+		fridge.tempSettingsC <- newTemp
 		// just set it for them for now, do this via commands later
-		th.Thermostat.TargetTemperature.SetValue(nt)
+		// th.Thermostat.TargetTemperature.SetValue(newTemp)
 	})
 
 	config := hc.Config{Pin: "80000000", StoragePath: storagePath}
@@ -81,11 +87,11 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 	}
 
 	go func() {
-		// wg.Add(1)
-		// defer func() {
-		// 	log.Trace("HK client loop calling done on main wait group")
-		// 	wg.Done()
-		// }()
+		// Fridge state scanner
+		// TODO bring this value in from env/cli
+		hkUpdateInterval := time.Second
+		ticker := time.NewTicker(hkUpdateInterval)
+
 		log.Trace("HK client looping now")
 		for {
 			select {
@@ -94,8 +100,9 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 				<-t.Stop()
 				log.Trace("HKClient stopped")
 				return
-			case s := <-fridgeStatus:
-				log.Tracef("Homekit got fridge status %v\n", s.Temp)
+			case <-ticker.C:
+				s := fridge.GetStatusReport()
+				log.Debugf("Homekit got fridge status %v", s.Temp)
 				var t float64
 				var tempSetting float64
 				if s.E5 == 1 {

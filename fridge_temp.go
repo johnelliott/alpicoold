@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var dataLenSetTemp byte = 0x4
@@ -19,6 +21,7 @@ type SetTempCommand struct {
 }
 
 func NewSetTempCommand(temp byte) ([]byte, error) {
+	log.Debug("NewSetTempCommand", temp)
 	// Known data
 	c := SetTempCommand{
 		Preamble:    Preamble,

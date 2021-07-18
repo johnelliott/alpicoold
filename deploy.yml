@@ -2,7 +2,7 @@
   vars:
     user: pi
     servicename: alpicoold
-    loglevel: debug
+    loglevel: trace
     pollrate_sec: 2
     timeout_sec: 1800
     storagepath: /var/local/homekitdb
