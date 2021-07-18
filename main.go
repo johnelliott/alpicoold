@@ -28,14 +28,15 @@ var (
 	adapterName string
 )
 
+type statusReportC chan StatusReport
 type tempSettingsC chan float64
-type settingsC chan SetStateCommand
+type settingsC chan Settings
 
 // Fridge represents a full fridge state
 type Fridge struct {
 	mu            sync.RWMutex
 	status        StatusReport
-	inlet         chan StatusReport
+	inlet         statusReportC
 	tempSettingsC tempSettingsC
 	settingsC     settingsC
 }
@@ -51,10 +52,28 @@ func (f *Fridge) MonitorMu() {
 	}
 }
 
-// SendSettings Sends the fridge state to the fridge
-func (f *Fridge) SendSettings(r Settings) {
-	log.Warnf("Fridge SendSettings stub: %v", r)
+// SetOn Sends the fridge state to the fridge
+func (f *Fridge) SetOn(turnOn bool) {
+	log.Warnf("Fridge SendSettings stub: %v", turnOn)
+	s := f.GetStatusReport().Settings
+	if turnOn {
+		s.On = 1
+	} else {
+		s.On = 0
+	}
+	f.settingsC <- s
+}
 
+// SetLocked Sends the fridge state to the fridge
+func (f *Fridge) SetLocked(lockIt bool) {
+	log.Warnf("Fridge SendSettings stub: %v", lockIt)
+	s := f.GetStatusReport().Settings
+	if lockIt {
+		s.Locked = 1
+	} else {
+		s.Locked = 0
+	}
+	f.settingsC <- s
 }
 
 // GetStatusReport gets the fridge state
@@ -118,9 +137,9 @@ func main() {
 
 	// Data setup
 	fridge := Fridge{
-		inlet:         make(chan StatusReport),
+		inlet:         make(statusReportC),
 		tempSettingsC: make(tempSettingsC),
-		settingsC:     make(chan SetStateCommand),
+		settingsC:     make(settingsC),
 	}
 	// Collect updates into status
 	go func() { fridge.MonitorMu() }()

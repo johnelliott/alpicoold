@@ -34,12 +34,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 		// ID:               1,
 	}
 	lockButton := accessory.NewSwitch(infoLockButton)
-	lockButton.Switch.On.OnValueRemoteUpdate(func(on bool) {
-		log.Warnf("User flip lock switch %v\n", on)
-		fridge.SendSettings(Settings{})
-		// just set it for them for now, do this via commands later
-		lockButton.Switch.On.SetValue(on)
-	})
+	lockButton.Switch.On.OnValueRemoteUpdate(fridge.SetLocked)
 
 	// Set up on button
 	infoOnButton := accessory.Info{
@@ -51,11 +46,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, storagePath string, fridg
 		// ID:               1,
 	}
 	onButton := accessory.NewSwitch(infoOnButton)
-	onButton.Switch.On.OnValueRemoteUpdate(func(on bool) {
-		log.Warnf("User flip ON switch %v\n", on)
-		// just set it for them for now, do this via commands later
-		onButton.Switch.On.SetValue(on)
-	})
+	onButton.Switch.On.OnValueRemoteUpdate(fridge.SetOn)
 
 	// Set up thermostat and command callbacks
 	infoThermo := accessory.Info{

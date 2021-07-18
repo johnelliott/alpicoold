@@ -277,7 +277,16 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				log.Trace("Cancel: magic payload loop", ctx.Err())
 				return
 			case settings := <-fridge.settingsC:
-				log.Warn("Here be the new settings for the fridge from the user", settings)
+				log.Info("Got settings payload", settings)
+				c, err := NewSetStateCommand(settings)
+				if err != nil {
+					panic(err)
+				}
+				log.Info("Writing set state payload", c)
+				err = char.WriteValue(c, nil)
+				if err != nil {
+					panic(err)
+				}
 			case temp := <-fridge.tempSettingsC:
 				log.Info("Got temp setting!", temp)
 				// Convert to current fridge temperature based on settings as
