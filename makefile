@@ -9,9 +9,6 @@ BINARY_UNIX=$(BINARY_NAME)_unix
 BINARY_RASPI=$(BINARY_NAME)_raspi
 BINARY_WINDOWS=$(BINARY_NAME)_windows
 
-# TODO fix this and make it come from ansible inventory
-GOARM=6
-
 all: test build
 	build:
 	$(GOBUILD) -o $(BINARY_NAME) -v
@@ -48,7 +45,7 @@ build-raspi:
 #        docker run --rm -it -v "$(GOPATH)":/go -w /go/src/bitbucket.org/rsohlich/makepost golang:latest go build -o "$(BINARY_UNIX)" -v
 
 # ansible things
-deploy: clean build
+deploy: clean
 	ansible-playbook -i ~/inventory.yml deploy.yml
 
 # local stuff replaced by ansible

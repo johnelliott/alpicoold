@@ -1,13 +1,14 @@
 - hosts: fridgepi
   vars:
-    user: pi
     armversion: 6
-    servicename: alpicoold
+    includecamera: true
     loglevel: debug
-    pollrate_sec: 2
     timeout_sec: 21600
-    storagepath: /var/local/homekitdb
-    fridge_addr: # leave blank
     adapter_name: # leave blank
+    fridge_addr: # leave blank
+    pollrate_sec: 2
+    servicename: alpicoold
+    storagepath: /var/local/homekitdb
+    user: pi
   roles:
   - alpicoold
