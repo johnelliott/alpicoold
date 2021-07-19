@@ -15,20 +15,32 @@ import (
 
 var (
 	// Flags
-	adapterNameF = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
-	addrF        = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	storagePathF = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
-	timeoutF     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
-	pollrateF    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	adapterNameF        = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
+	addrF               = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
+	storagePathF        = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
+	timeoutF            = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
+	pollrateF           = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	minVideoBitrateF    = flag.Int("min_video_bitrate", 0, "minimum video bit rate in kbps")
+	camRotationDegreesF = flag.Int("cam_rot_deg", 0, "raspi camera rotation in degrees")
+	multiStreamF        = flag.Bool("multi_stream", false, "Allow mutliple clients to view the stream simultaneously")
 
 	initialFridgeSettings = Settings{}
 
 	// App settings
-	pollrate    time.Duration
-	timeout     time.Duration
-	addr        string
-	adapterName string
+	// TODO JSON log setting and control that below
+	pollrate           time.Duration
+	minVideoBitrate    int
+	camRotationDegrees int
+	multiStream        bool
+	timeout            time.Duration
+	addr               string
+	adapterName        string
 )
+
+//var dataDir *string = flag.String("data_dir", "Camera", "Path to data directory")
+// var verbose *bool = flag.Bool("verbose", true, "Verbose logging")
+// var pin *string = flag.String("pin", "00102003", "PIN for HomeKit pairing")
+// var port *string = flag.String("port", "", "Port on which transport is reachable")
 
 type statusReportC chan StatusReport
 type tempSettingsC chan float64
@@ -152,6 +164,9 @@ func main() {
 	adapterName = env.GetOrDefaultString("ADAPTER_NAME", *adapterNameF)
 	addr = env.GetOrDefaultString("FRIDGE_ADDR", *addrF)
 	storagePath := env.GetOrDefaultString("STORAGE_PATH", *storagePathF)
+	minVideoBitrate = env.GetOrDefaultInt("CAM_MIN_VIDEO_BITRATE", *minVideoBitrateF)
+	camRotationDegrees = env.GetOrDefaultInt("CAM_ROTATION_DEGREES", *camRotationDegreesF)
+	multiStream = env.GetOrDefaultBool("CAM_MULTI_STREAM", *multiStreamF)
 
 	log.Warn("timeout", timeout)
 	log.Warn("pollrate", pollrate)
@@ -254,10 +269,12 @@ func main() {
 	}()
 
 	// Kick off homekit client
-	go HKClient(HKClientContext, &wg, storagePath, &fridge)
+	go HKClient(HKClientContext, &wg, storagePath, minVideoBitrate, multiStream, &fridge)
 
 	// fakeResultsC := make(chan int)
 	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
+
+	// go CameraClient(cameraClientContext, &wg, cameraResultsC)
 
 	log.Trace("Main waiting...")
 	for {
