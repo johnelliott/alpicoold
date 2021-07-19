@@ -277,12 +277,12 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				log.Trace("Cancel: magic payload loop", ctx.Err())
 				return
 			case settings := <-fridge.settingsC:
-				log.Info("Got settings payload", settings)
+				log.Tracef("Got settings payload %v", settings)
 				c, err := NewSetStateCommand(settings)
 				if err != nil {
 					panic(err)
 				}
-				log.Info("Writing set state payload", c)
+				log.Infof("Writing set state payload %v", c)
 				err = char.WriteValue(c, nil)
 				if err != nil {
 					panic(err)
