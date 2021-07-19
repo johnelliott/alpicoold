@@ -9,6 +9,9 @@ BINARY_UNIX=$(BINARY_NAME)_unix
 BINARY_RASPI=$(BINARY_NAME)_raspi
 BINARY_WINDOWS=$(BINARY_NAME)_windows
 
+# TODO fix this and make it come from ansible inventory
+GOARM=6
+
 all: test build
 	build:
 	$(GOBUILD) -o $(BINARY_NAME) -v
@@ -32,7 +35,7 @@ build: build-raspi
 
 # Cross compilation from macos to linux, needs homebrew install of CC tools
 build-raspi:
-	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-musleabihf-gcc \
+	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=$(GOARM) CC=arm-linux-musleabihf-gcc \
 				$(GOBUILD) -v \
 				--ldflags '-linkmode external -extldflags "-static"' \
 				-o $(BINARY_RASPI)

@@ -1,6 +1,7 @@
-- hosts: campi
+- hosts: fridgepi
   vars:
     user: pi
+    armversion: 6
     servicename: alpicoold
     loglevel: debug
     pollrate_sec: 2
