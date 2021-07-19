@@ -98,7 +98,8 @@ func (f *Fridge) GetStatusReport() StatusReport {
 	return f.status
 }
 
-func (f *Fridge) CycleCompressor(onTime time.Duration) {
+// CycleCompressor spins up compressor to defeat power bank auto-off
+func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 	log.Info("Fridge quick compressor cycle")
 	// Capture settings
 	s := f.GetStatusReport().Settings
@@ -106,9 +107,16 @@ func (f *Fridge) CycleCompressor(onTime time.Duration) {
 	// TODO do this better, this is a lazy way
 	if s == initialFridgeSettings {
 		log.Trace("Waiting to see some initialized data")
-		time.Sleep(2 * time.Second)
-		f.CycleCompressor(onTime)
-		return
+		ticker := time.NewTicker(2 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				f.CycleCompressor(ctx, onTime)
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
 	}
 	prevSettings := s
 	// Turn down temp
@@ -181,6 +189,9 @@ func main() {
 	// fakeClientContext, cancelFakeClientContext := context.WithCancel(ctx)
 	// defer cancelFakeClientContext()
 
+	cycleCompressorContext, cancelCycleCompressor := context.WithCancel(ctx)
+	defer cancelCycleCompressor()
+
 	HKClientContext, cancelHKClientContext := context.WithCancel(ctx)
 	defer cancelHKClientContext()
 
@@ -215,12 +226,17 @@ func main() {
 
 	go func() {
 		log.Debug("Fridge interval turnon/turnoff start")
+		cycleOnTime := 15 * time.Second // TODO make this come from env/flags
+		ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
+		defer cccc1()
+		ccc2, cccc2 := context.WithCancel(cycleCompressorContext)
+		defer cccc2()
 		// cycle on startup of daemon
-		go fridge.CycleCompressor(15 * time.Second)
+		go fridge.CycleCompressor(ccc1, cycleOnTime)
 		ticker := time.NewTicker(8 * time.Hour)
 		for range ticker.C {
 			log.Debug("Fridge compressor cycle tick")
-			go fridge.CycleCompressor(15 * time.Second)
+			go fridge.CycleCompressor(ccc2, cycleOnTime)
 		}
 	}()
 
