@@ -44,10 +44,6 @@ build-raspi:
 #docker-build:
 #        docker run --rm -it -v "$(GOPATH)":/go -w /go/src/bitbucket.org/rsohlich/makepost golang:latest go build -o "$(BINARY_UNIX)" -v
 
-# ansible things
-deploy: clean
-	ansible-playbook -i ~/inventory.yml deploy.yml
-
 # local stuff replaced by ansible
 journal:
 	journalctl -u alpicoold -f

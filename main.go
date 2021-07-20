@@ -15,14 +15,23 @@ import (
 
 var (
 	// Flags
-	adapterNameF        = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
-	addrF               = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	storagePathF        = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
-	timeoutF            = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
-	pollrateF           = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	adapterNameF = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
+	addrF        = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
+	timeoutF     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
+	pollrateF    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+
+	// HomeKit
+	storagePathF = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
+
+	// Camera
 	minVideoBitrateF    = flag.Int("min_video_bitrate", 0, "minimum video bit rate in kbps")
 	camRotationDegreesF = flag.Int("cam_rot_deg", 0, "raspi camera rotation in degrees")
 	multiStreamF        = flag.Bool("multi_stream", false, "Allow mutliple clients to view the stream simultaneously")
+	inputDeviceF        = flag.String("input_device", "v4l2", "video input device")
+	inputFilenameF      = flag.String("input_filename", "/dev/video0", "video input device filename")
+	loopbackFilenameF   = flag.String("loopback_filename", "/dev/video1", "video loopback device filename")
+	h264DecoderF        = flag.String("h264_decoder", "", "h264 video decoder")
+	h264EncoderF        = flag.String("h264_encoder", "h264_omx", "h264 video encoder")
 
 	initialFridgeSettings = Settings{}
 
@@ -35,6 +44,11 @@ var (
 	timeout            time.Duration
 	addr               string
 	adapterName        string
+	inputDevice        string
+	inputFilename      string
+	loopbackFilename   string
+	h264Decoder        string
+	h264Encoder        string
 )
 
 //var dataDir *string = flag.String("data_dir", "Camera", "Path to data directory")
@@ -168,6 +182,12 @@ func main() {
 	camRotationDegrees = env.GetOrDefaultInt("CAM_ROTATION_DEGREES", *camRotationDegreesF)
 	multiStream = env.GetOrDefaultBool("CAM_MULTI_STREAM", *multiStreamF)
 
+	inputDevice = env.GetOrDefaultString("INPUT_DEVICE", *inputDeviceF)
+	inputFilename = env.GetOrDefaultString("INPUT_FILENAME", *inputFilenameF)
+	loopbackFilename = env.GetOrDefaultString("LOOPBACK_FILENAME", *loopbackFilenameF)
+	h264Encoder = env.GetOrDefaultString("H264ENCODER", *h264EncoderF)
+	h264Decoder = env.GetOrDefaultString("H264DNECODER", *h264DecoderF)
+
 	log.Warn("timeout", timeout)
 	log.Warn("pollrate", pollrate)
 
@@ -269,7 +289,16 @@ func main() {
 	}()
 
 	// Kick off homekit client
-	go HKClient(HKClientContext, &wg, storagePath, minVideoBitrate, multiStream, &fridge)
+	go HKClient(HKClientContext, &wg, &fridge, HKSettings{
+		storagePath,
+		minVideoBitrate,
+		multiStream,
+		inputDevice,
+		inputFilename,
+		loopbackFilename,
+		h264Decoder,
+		h264Encoder,
+	})
 
 	// fakeResultsC := make(chan int)
 	// go FakeClient(fakeClientContext, &wg, fakeResultsC)

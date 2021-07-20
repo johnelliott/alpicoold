@@ -342,6 +342,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					err = f.UnmarshalBinary(value)
 					if err != nil {
 						log.Error("Other frame UnmarshalBinary", err)
+						break
 					}
 					// Send status to rest of app
 					fridge.inlet <- f
