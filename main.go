@@ -139,21 +139,29 @@ func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 			}
 		}
 	}
+
 	prevSettings := s.Settings
 	// Turn down temp
 	if !s.On {
 		// Turn on
 		s.On = true
+
 		// Choose temp to set
+		current := float64(s.Temp)
+		upperBound := float64(s.E1)
+		lowerBound := float64(s.E2)
 		hysterisis := float64(s.E3)
-		var lowerBoundValue float64 // zero
-		if !s.E5 {
-			lowerBoundValue = -10.0
-		}
+		deltaToTriggerCompressor := hysterisis + 1
 		// Guard against out of range values
-		newLow := math.Max(float64(s.Temp)-(1+hysterisis), lowerBoundValue)
-		log.Info("newLow", newLow)
-		s.TempSet = int8(newLow)
+		loweredT := math.Min( // Guard against high values that won't trigger cooling
+			upperBound,
+			math.Max( // Guard aginst too-low values and integer overflow
+				lowerBound,
+				current-deltaToTriggerCompressor, // Ideal temp to trigger cooling
+			),
+		)
+		log.Infof("CycleCompressor loweredT=%#v", loweredT)
+		s.TempSet = int8(loweredT)
 		log.Tracef("Fridge going to cold setting: On=%v TempSet=%v", s.On, s.TempSet)
 		// block writing while we're cycling
 		f.settingsC <- s.Settings
