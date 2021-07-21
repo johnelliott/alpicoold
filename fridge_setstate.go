@@ -46,22 +46,25 @@ func (c *SetStateCommand) CRC() uint16 {
 	// big endian
 	checksum := c.Preamble>>8 +
 		c.Preamble&0xff +
-		uint16(c.DataLen) +
-		uint16(c.CommandCode) +
-		uint16(c.Locked) +
-		uint16(c.On) +
-		uint16(c.EcoMode) +
-		uint16(c.HLvl) +
-		uint16(c.TempSet) +
-		uint16(c.E1) +
-		uint16(c.E2) +
-		uint16(c.E3) +
-		uint16(c.E4) +
-		uint16(c.E5) +
-		uint16(c.E6) +
-		uint16(c.E7) +
-		uint16(c.E8) +
-		uint16(c.E9)
+		uint16(uint8(c.DataLen)) +
+		uint16(uint8(c.CommandCode)) +
+		uint16(uint8(c.HLvl)) +
+		uint16(uint8(c.TempSet)) +
+		uint16(uint8(c.E1)) +
+		uint16(uint8(c.E2)) +
+		uint16(uint8(c.E3)) +
+		uint16(uint8(c.E4)) +
+		uint16(uint8(c.E6)) +
+		uint16(uint8(c.E7)) +
+		uint16(uint8(c.E8)) +
+		uint16(uint8(c.E9))
+
+	// Flags
+	for _, b := range []bool{c.Locked, c.On, c.EcoMode, c.E5} {
+		if b {
+			checksum++
+		}
+	}
 	return checksum
 }
 

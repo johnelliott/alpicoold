@@ -5,28 +5,28 @@ var Preamble uint16 = 0xfefe
 
 // Sensors contains all the sensors exposed via bluetooth
 type Sensors struct {
-	Temp    byte // Fridge temp in degrees farenheit, but also in C
-	UB17    byte // Unknown byte 17, fridge battery level?
-	InputV1 byte // Input voltage volts
-	InputV2 byte // Input voltage volt tenths
+	Temp    int8  // Fridge temp in degrees farenheit, but also in C
+	UB17    byte  // Unknown byte 17, fridge battery level?
+	InputV1 uint8 // Input voltage volts
+	InputV2 uint8 // Input voltage volt tenths
 }
 
 // Settings contains the main fridge settings set by the user
 type Settings struct {
-	Locked  byte // Keypad lock
-	On      byte // Soft power state
-	EcoMode byte // Power efficient mode
-	HLvl    byte // Input voltage cutoff level H/M/L
-	TempSet byte // Desired temperature (thermostat)
-	E1      byte // E1: Thermostat setting upper bound
-	E2      byte // E2: Thermostat setting lower bound
-	E3      byte // E3? Advanced Setting Maybe left hysterisis
-	E4      byte // E4 Advanced setting zero when in F mode maybe?
-	E5      byte // E5 is F or C mode for whole system
-	E6      byte // E6 Advanced setting zero when in F mode maybe?
-	E7      byte // E7 Advanced setting zero when in F mode maybe?
-	E8      byte // E8 Advanced setting Left TC:T<-12degC
-	E9      byte // E9 Advanced setting Maybe start delay (narrow this first before temp values)
+	Locked  bool  // Keypad lock
+	On      bool  // Soft power state
+	EcoMode bool  // Power efficient mode
+	HLvl    uint8 // Input voltage cutoff level H/M/L
+	TempSet int8  // Desired temperature (thermostat)
+	E1      int8  // E1: Thermostat setting upper bound
+	E2      int8  // E2: Thermostat setting lower bound
+	E3      int8  // E3? Advanced Setting Maybe left hysterisis
+	E4      int8  // E4 Advanced setting zero when in F mode maybe?
+	E5      bool  // E5 is F or C mode for whole system
+	E6      int8  // E6 Advanced setting zero when in F mode maybe?
+	E7      int8  // E7 Advanced setting zero when in F mode maybe?
+	E8      int8  // E8 Advanced setting Left TC:T<-12degC
+	E9      uint8 // E9 Advanced setting Maybe start delay (narrow this first before temp values)
 }
 
 // Ping requests notifications, and is static, so it needs no associated code

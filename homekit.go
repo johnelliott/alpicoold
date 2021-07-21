@@ -165,7 +165,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 				log.Tracef("Homekit got fridge status %v", s.Temp)
 				var t float64
 				var tempSetting float64
-				if s.E5 == 1 {
+				if s.E5 {
 					t = FtoC(float64(s.Temp))
 					tempSetting = FtoC(float64(s.TempSet))
 				} else {
@@ -174,11 +174,11 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 				}
 
 				// switches/buttons
-				onButton.Switch.On.SetValue(s.On == 1)
-				ecoModeButton.Switch.On.SetValue(s.EcoMode == 1)
-				lockButton.Switch.On.SetValue(s.Locked == 1)
+				onButton.Switch.On.SetValue(s.On)
+				ecoModeButton.Switch.On.SetValue(s.EcoMode)
+				lockButton.Switch.On.SetValue(s.Locked)
 				// Required
-				if s.On == 1 {
+				if s.On {
 					th.Thermostat.CurrentHeatingCoolingState.SetValue(2)
 					th.Thermostat.TargetHeatingCoolingState.SetValue(2)
 				} else {

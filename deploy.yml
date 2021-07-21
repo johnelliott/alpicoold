@@ -1,18 +1,6 @@
-- hosts: fridgepi
+---
+- hosts: fridges
   vars:
-    armversion: 6
-    includecamera: true
-    loglevel: trace
-    timeout_sec: 21600
-    adapter_name: # leave blank
-    cam_min_video_bitrate: 0
-    cam_rotation_degrees: 0
-    cam_multi_stream: false
-    disable_camera_led: false
-    fridge_addr: # leave blank
-    pollrate_sec: 2
-    servicename: alpicoold
-    storagepath: /var/local/homekitdb
-    user: pi
   roles:
-  - alpicoold
+    - camera
+    - alpicoold

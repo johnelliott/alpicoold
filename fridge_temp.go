@@ -9,18 +9,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var dataLenSetTemp byte = 0x4
-var cmdCodeSetTemp byte = 0x5
+var dataLenSetTemp int8 = 0x4
+var cmdCodeSetTemp int8 = 0x5
 
 type SetTempCommand struct {
 	Preamble    uint16
-	DataLen     byte // 4
-	CommandCode byte // 5
-	Temp        byte
+	DataLen     int8 // 4
+	CommandCode int8 // 5
+	Temp        int8
 	Checksum    uint16
 }
 
-func NewSetTempCommand(temp byte) ([]byte, error) {
+func NewSetTempCommand(temp int8) ([]byte, error) {
 	log.Debug("NewSetTempCommand", temp)
 	// Known data
 	c := SetTempCommand{

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"math"
 	"os"
 	"os/signal"
 	"sync"
@@ -84,36 +85,30 @@ func (f *Fridge) MonitorMu() {
 func (f *Fridge) SetOn(turnOn bool) {
 	log.Warnf("SetOn: %v", turnOn)
 	s := f.GetStatusReport().Settings
-	if turnOn {
-		s.On = 1
-	} else {
-		s.On = 0
+	if s.On != turnOn {
+		s.On = turnOn
+		f.settingsC <- s
 	}
-	f.settingsC <- s
 }
 
 // SetEcoMode Sends the fridge state to the fridge
 func (f *Fridge) SetEcoMode(useEcoMode bool) {
 	log.Warnf("SetEcoMode: %v", useEcoMode)
 	s := f.GetStatusReport().Settings
-	if useEcoMode {
-		s.EcoMode = 1
-	} else {
-		s.EcoMode = 0
+	if s.EcoMode != useEcoMode {
+		s.EcoMode = useEcoMode
+		f.settingsC <- s
 	}
-	f.settingsC <- s
 }
 
 // SetLocked Sends the fridge state to the fridge
 func (f *Fridge) SetLocked(lockIt bool) {
 	log.Warnf("SetLocked: %v", lockIt)
 	s := f.GetStatusReport().Settings
-	if lockIt {
-		s.Locked = 1
-	} else {
-		s.Locked = 0
+	if s.Locked != lockIt {
+		s.Locked = lockIt
+		f.settingsC <- s
 	}
-	f.settingsC <- s
 }
 
 // GetStatusReport gets the fridge state
@@ -128,10 +123,10 @@ func (f *Fridge) GetStatusReport() StatusReport {
 func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 	log.Info("Fridge quick compressor cycle")
 	// Capture settings
-	s := f.GetStatusReport().Settings
+	s := f.GetStatusReport()
 	// wait if we see that the struct is just initialized
 	// TODO do this better, this is a lazy way
-	if s == initialFridgeSettings {
+	if s.Settings == initialFridgeSettings {
 		log.Trace("Waiting to see some initialized data")
 		ticker := time.NewTicker(2 * time.Second)
 		for {
@@ -144,20 +139,24 @@ func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 			}
 		}
 	}
-	prevSettings := s
+	prevSettings := s.Settings
 	// Turn down temp
-	if s.On != 1 {
+	if !s.On {
 		// Turn on
-		s.On = 1
-		// Choose freezing
-		if s.E5 != 0 {
-			s.TempSet = 0xff - 10 // minus 10 c
-		} else {
-			s.TempSet = 0 // TODO fix this to C or f
+		s.On = true
+		// Choose temp to set
+		hysterisis := float64(s.E3)
+		var lowerBoundValue float64 // zero
+		if !s.E5 {
+			lowerBoundValue = -10.0
 		}
+		// Guard against out of range values
+		newLow := math.Max(float64(s.Temp)-(1+hysterisis), lowerBoundValue)
+		log.Info("newLow", newLow)
+		s.TempSet = int8(newLow)
 		log.Tracef("Fridge going to cold setting: On=%v TempSet=%v", s.On, s.TempSet)
 		// block writing while we're cycling
-		f.settingsC <- s
+		f.settingsC <- s.Settings
 		// TODO see if there's a way to avoid this 30s window where things could get clobbered
 		// time after func turn off
 		time.AfterFunc(onTime, func() {
