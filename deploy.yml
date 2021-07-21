@@ -2,5 +2,5 @@
 - hosts: fridges
   vars:
   roles:
-    - camera
+    #- camera
     - alpicoold

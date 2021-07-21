@@ -6,7 +6,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BINARY_NAME=alpicoold
 BINARY_UNIX=$(BINARY_NAME)_unix
-BINARY_RASPI=$(BINARY_NAME)_raspi
+BINARY_RASPI=$(BINARY_NAME)_raspi_arm
 BINARY_WINDOWS=$(BINARY_NAME)_windows
 
 all: test build
@@ -18,7 +18,7 @@ clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_UNIX)
-	rm -f $(BINARY_RASPI)
+	rm -f $(BINARY_RASPI)$(GOARM)
 run:
 	$(GOBUILD) -o $(BINARY_NAME) -v ./...
 	./$(BINARY_NAME)
@@ -35,7 +35,7 @@ build-raspi:
 	CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=$(GOARM) CC=arm-linux-musleabihf-gcc \
 				$(GOBUILD) -v \
 				--ldflags '-linkmode external -extldflags "-static"' \
-				-o $(BINARY_RASPI)
+				-o $(BINARY_RASPI)$(GOARM)
 
 #build-linux:
 #       CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v
@@ -43,27 +43,3 @@ build-raspi:
 #        CGO_ENABLED=1 GOOS=windows GOARCH=386 $(GOBUILD) -o $(BINARY_WINDOWS) -v
 #docker-build:
 #        docker run --rm -it -v "$(GOPATH)":/go -w /go/src/bitbucket.org/rsohlich/makepost golang:latest go build -o "$(BINARY_UNIX)" -v
-
-# local stuff replaced by ansible
-journal:
-	journalctl -u alpicoold -f
-	#journalctl -u alpicoold
-	#journalctl -u alpicoold.service -f -o json |jq -c -f /home/pi/bluetooth-fridge/journal.jq
-status:
-	sudo systemctl status alpicoold
-
-daemon-reload:
-	sudo systemctl daemon-reload
-	start: daemon-reload
-	sudo systemctl start alpicoold
-stop:
-	sudo systemctl stop alpicoold
-
-restart: daemon-reload
-	sudo systemctl restart alpicoold
-	enable: daemon-reload
-	sudo systemctl enable alpicoold
-disable:
-	sudo systemctl disable alpicoold
-
-update: build restart
