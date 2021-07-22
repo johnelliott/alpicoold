@@ -123,23 +123,26 @@ func (f *Fridge) GetStatusReport() StatusReport {
 func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 	log.Info("Fridge quick compressor cycle")
 	// Capture settings
-	s := f.GetStatusReport()
 	// wait if we see that the struct is just initialized
+	s := f.GetStatusReport()
 	// TODO do this better, this is a lazy way
-	if s.Settings == initialFridgeSettings {
-		log.Trace("Waiting to see some initialized data")
-		ticker := time.NewTicker(2 * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				f.CycleCompressor(ctx, onTime)
-				return
-			case <-ctx.Done():
-				return
+	ticker := time.NewTicker(2 * time.Second)
+Lerp:
+	for {
+		select {
+		case <-ticker.C:
+			s = f.GetStatusReport()
+			if s.Settings != initialFridgeSettings {
+				break Lerp
+			} else {
+				log.Trace("Waiting to see fridge initialized data")
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 
+	log.Trace("Cycling compressor...")
 	prevSettings := s.Settings
 	// Turn down temp
 	if !s.On {
