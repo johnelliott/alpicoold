@@ -163,6 +163,8 @@ Lerp:
 				current-deltaToTriggerCompressor, // Ideal temp to trigger cooling
 			),
 		)
+		// Lowest allowed by fridge settings
+
 		log.Infof("CycleCompressor loweredT=%#v", loweredT)
 		s.TempSet = int8(loweredT)
 		log.Tracef("Fridge going to cold setting: On=%v TempSet=%v", s.On, s.TempSet)

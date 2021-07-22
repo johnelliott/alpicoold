@@ -5,9 +5,9 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BINARY_NAME=alpicoold
-BINARY_UNIX=$(BINARY_NAME)_unix
+#BINARY_UNIX=$(BINARY_NAME)_unix
 BINARY_RASPI=$(BINARY_NAME)_raspi_arm
-BINARY_WINDOWS=$(BINARY_NAME)_windows
+#BINARY_WINDOWS=$(BINARY_NAME)_windows
 
 all: test build
 	build:
@@ -17,7 +17,7 @@ test:
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_UNIX)
+	#rm -f $(BINARY_UNIX)
 	rm -f $(BINARY_RASPI)$(GOARM)
 run:
 	$(GOBUILD) -o $(BINARY_NAME) -v ./...
@@ -36,7 +36,6 @@ build-raspi:
 				$(GOBUILD) -v \
 				--ldflags '-linkmode external -extldflags "-static"' \
 				-o $(BINARY_RASPI)$(GOARM)
-
 #build-linux:
 #       CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v
 #build-windows:

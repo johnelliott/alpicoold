@@ -1,6 +1,7 @@
 ---
 - hosts: fridges
   vars:
+    loglevel: trace
   roles:
     #- camera
     - alpicoold
