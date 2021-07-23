@@ -5,28 +5,28 @@ var Preamble uint16 = 0xfefe
 
 // Sensors contains all the sensors exposed via bluetooth
 type Sensors struct {
-	Temp    int8  // Fridge temp in degrees farenheit, but also in C
-	UB17    byte  // Unknown byte 17, fridge battery level?
-	InputV1 uint8 // Input voltage volts
-	InputV2 uint8 // Input voltage volt tenths
+	Temp    int8 // Fridge temp in degrees farenheit, but also in C
+	UB17    int8 // Unknown byte 17, fridge battery level?
+	InputV1 int8 // Input voltage volts
+	InputV2 int8 // Input voltage volt tenths
 }
 
 // Settings contains the main fridge settings set by the user
 type Settings struct {
-	Locked  bool  // Keypad lock
-	On      bool  // Soft power state
-	EcoMode bool  // Power efficient mode
-	HLvl    uint8 // Input voltage cutoff level H/M/L
-	TempSet int8  // Desired temperature (thermostat)
-	E1      int8  // E1: Thermostat setting upper bound
-	E2      int8  // E2: Thermostat setting lower bound
-	E3      int8  // E3? Advanced Setting Maybe left hysterisis
-	E4      int8  // E4 Advanced setting zero when in F mode maybe?
-	E5      bool  // E5 is F or C mode for whole system
-	E6      int8  // E6 Advanced setting zero when in F mode maybe?
-	E7      int8  // E7 Advanced setting zero when in F mode maybe?
-	E8      int8  // E8 Advanced setting Left TC:T<-12degC
-	E9      uint8 // E9 Advanced setting Maybe start delay (narrow this first before temp values)
+	Locked                                               bool // Keypad lock
+	On                                                   bool // Soft power state
+	EcoMode                                              bool // Power efficient mode
+	HLvl                                                 int8 // Input voltage cutoff level H/M/L
+	TempSet                                              int8 // Desired temperature (thermostat)
+	LowestTempSettingMenuE1                              int8 // E1: Thermostat setting upper bound
+	HighestTempSettingMenuE2                             int8 // E2: Thermostat setting lower bound
+	HysteresisMenuE3                                     int8 // E3: Hysteresis i.e. Temp return setting
+	SoftStartDelayMinMenuE4                              int8 // E4: Soft on start delay in minutes
+	CelsiusFahrenheitModeMenuE5                          bool // E5  Celsius or Fahrenheit mode for fridge
+	TempCompGTE6MinusDegCelsiusMenuE6                    int8 // E6: High range temperature compensation
+	TempCompGTE12MinusDegCelsiusLT6MinusDegCelsiusMenuE7 int8 // E8: Mid range temperature compensation
+	TempCompLT12MinusDegCelsiusMenuE8                    int8 // E8: Low range temperature compensation
+	TempCompShutdownMenuE9                               int8 // E9: Shutdown? Perhaps a lower bound?
 }
 
 // Ping requests notifications, and is static, so it needs no associated code

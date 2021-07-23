@@ -292,7 +292,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				// Convert to current fridge temperature based on settings as
 				// the protocol requires
 				var tempC float64
-				if fridge.GetStatusReport().E5 {
+				if fridge.GetStatusReport().CelsiusFahrenheitModeMenuE5 {
 					tempC = CtoF(temp)
 				}
 				// Form command bytes

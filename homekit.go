@@ -91,10 +91,10 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 	th.Thermostat.TargetHeatingCoolingState.SetValue(0)
 	th.Thermostat.TemperatureDisplayUnits.SetValue(1) // 0=C, 1=F
 
-	th.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(newTempRawCelcius float64) {
+	th.Thermostat.TargetTemperature.OnValueRemoteUpdate(func(newTempRawCelsius float64) {
 		// Round to something reasonable
-		newTemp := math.Round(newTempRawCelcius)
-		log.Tracef("New TargetTemperature: %v %v %v", newTempRawCelcius, newTemp, byte(newTemp))
+		newTemp := math.Round(newTempRawCelsius)
+		log.Tracef("New TargetTemperature: %v %v %v", newTempRawCelsius, newTemp, byte(newTemp))
 		fridge.tempSettingsC <- newTemp
 		// just set it for them for now, do this via commands later
 		// th.Thermostat.TargetTemperature.SetValue(newTemp)
@@ -165,7 +165,7 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 				log.Tracef("Homekit got fridge status %v", s.Temp)
 				var t float64
 				var tempSetting float64
-				if s.E5 {
+				if s.CelsiusFahrenheitModeMenuE5 {
 					t = FtoC(float64(s.Temp))
 					tempSetting = FtoC(float64(s.TempSet))
 				} else {
@@ -190,11 +190,11 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 				th.Thermostat.TemperatureDisplayUnits.SetValue(1) // 0=C, 1=F
 
 				// TODO see if this is settable this often per the spec
-				// th.Thermostat.TemperatureDisplayUnits.SetValue(int(s.E5)) // 0=C, 1=F
+				// th.Thermostat.TemperatureDisplayUnits.SetValue(int(s.CelsiusFahrenheitModeMenuE5)) // 0=C, 1=F
 
 				// Optional
-				// th.Thermostat.CurrentHeatingCoolingState.SetMaxValue(int(s.E1))
-				// th.Thermostat.CurrentHeatingCoolingState.SetMinValue(int(s.E2))
+				// th.Thermostat.CurrentHeatingCoolingState.SetMaxValue(int(s.LowestTempSettingMenuE1))
+				// th.Thermostat.CurrentHeatingCoolingState.SetMinValue(int(s.HighestTempSettingMenuE2))
 			}
 		}
 	}()

@@ -50,17 +50,17 @@ func (c *SetStateCommand) CRC() uint16 {
 		uint16(uint8(c.CommandCode)) +
 		uint16(uint8(c.HLvl)) +
 		uint16(uint8(c.TempSet)) +
-		uint16(uint8(c.E1)) +
-		uint16(uint8(c.E2)) +
-		uint16(uint8(c.E3)) +
-		uint16(uint8(c.E4)) +
-		uint16(uint8(c.E6)) +
-		uint16(uint8(c.E7)) +
-		uint16(uint8(c.E8)) +
-		uint16(uint8(c.E9))
+		uint16(uint8(c.LowestTempSettingMenuE1)) +
+		uint16(uint8(c.HighestTempSettingMenuE2)) +
+		uint16(uint8(c.HysteresisMenuE3)) +
+		uint16(uint8(c.SoftStartDelayMinMenuE4)) +
+		uint16(uint8(c.TempCompGTE6MinusDegCelsiusMenuE6)) +
+		uint16(uint8(c.TempCompGTE12MinusDegCelsiusLT6MinusDegCelsiusMenuE7)) +
+		uint16(uint8(c.TempCompLT12MinusDegCelsiusMenuE8)) +
+		uint16(uint8(c.TempCompShutdownMenuE9))
 
 	// Flags
-	for _, b := range []bool{c.Locked, c.On, c.EcoMode, c.E5} {
+	for _, b := range []bool{c.Locked, c.On, c.EcoMode, c.CelsiusFahrenheitModeMenuE5} {
 		if b {
 			checksum++
 		}

@@ -151,9 +151,9 @@ Lerp:
 
 		// Choose temp to set
 		current := float64(s.Temp)
-		upperBound := float64(s.E1)
-		lowerBound := float64(s.E2)
-		hysterisis := float64(s.E3)
+		upperBound := float64(s.LowestTempSettingMenuE1)
+		lowerBound := float64(s.HighestTempSettingMenuE2)
+		hysterisis := float64(s.HysteresisMenuE3)
 		deltaToTriggerCompressor := hysterisis + 1
 		// Guard against out of range values
 		loweredT := math.Min( // Guard against high values that won't trigger cooling

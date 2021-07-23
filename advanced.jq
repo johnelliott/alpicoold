@@ -6,6 +6,6 @@ E4,
 E5,
 E6,
 E7,
-E8,
-E9,
+TempCompLT12MinusDegCelsiusMenuE8,
+TempCompShutdownMenuE9,
 }
