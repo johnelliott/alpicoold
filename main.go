@@ -234,9 +234,6 @@ func main() {
 	clientContext, cancelClient := context.WithCancel(ctx)
 	defer cancelClient()
 
-	// fakeClientContext, cancelFakeClientContext := context.WithCancel(ctx)
-	// defer cancelFakeClientContext()
-
 	cycleCompressorContext, cancelCycleCompressor := context.WithCancel(ctx)
 	defer cancelCycleCompressor()
 
@@ -313,16 +310,11 @@ func main() {
 		h264Encoder,
 	})
 
-	// fakeResultsC := make(chan int)
-	// go FakeClient(fakeClientContext, &wg, fakeResultsC)
-
 	// go CameraClient(cameraClientContext, &wg, cameraResultsC)
 
 	log.Trace("Main waiting...")
 	for {
 		select {
-		// case r := <-fakeResultsC:
-		// 	log.Infof("FakeClient result: %v\n", r)
 		case <-ctx.Done():
 			log.Debug("Main context canceled")
 
