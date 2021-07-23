@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/platform/config/env"
+	"github.com/johnelliott/alpicoold/pkg/k25"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,7 +35,7 @@ var (
 	h264DecoderF        = flag.String("h264_decoder", "", "h264 video decoder")
 	h264EncoderF        = flag.String("h264_encoder", "h264_omx", "h264 video encoder")
 
-	initialFridgeSettings = Settings{}
+	initialFridgeSettings = k25.Settings{}
 
 	// App settings
 	// TODO JSON log setting and control that below
@@ -57,14 +58,14 @@ var (
 // var pin *string = flag.String("pin", "00102003", "PIN for HomeKit pairing")
 // var port *string = flag.String("port", "", "Port on which transport is reachable")
 
-type statusReportC chan StatusReport
+type statusReportC chan k25.StatusReport
 type tempSettingsC chan float64
-type settingsC chan Settings
+type settingsC chan k25.Settings
 
 // Fridge represents a full fridge state
 type Fridge struct {
 	mu            sync.RWMutex
-	status        StatusReport
+	status        k25.StatusReport
 	inlet         statusReportC
 	tempSettingsC tempSettingsC
 	settingsC     settingsC
@@ -112,7 +113,7 @@ func (f *Fridge) SetLocked(lockIt bool) {
 }
 
 // GetStatusReport gets the fridge state
-func (f *Fridge) GetStatusReport() StatusReport {
+func (f *Fridge) GetStatusReport() k25.StatusReport {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	log.Trace("getting status report", f.status.Temp)

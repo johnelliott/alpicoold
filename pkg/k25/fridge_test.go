@@ -1,10 +1,11 @@
-package main
+package k25
 
 import (
 	"fmt"
 	"testing"
 )
 
+// 555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
 func TestSetTempCommand(t *testing.T) {
 	t.Run("UnmarshalBinary", func(t *testing.T) {
 		setTempBytes := []byte{0xfe, 0xfe, 0x04, 0x05, 0x25, 0x02, 0x2a}
@@ -141,6 +142,7 @@ func TestSetTempCommand(t *testing.T) {
 	})
 }
 
+// 222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
 func TestSetStateCommand(t *testing.T) {
 	t.Run("NewSetStateCommand", func(t *testing.T) {
 		// 0xfe, 0xfe, 0x11, 0x02,			0x00, 0x01, 0x01, 0x02, 0x24, 0x44, 0xfc, 0x04, 0x00, 0x01, 0x00, 0x00, 0xfb, 0x00, 0x04, 0x77

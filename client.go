@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+	"github.com/johnelliott/alpicoold/pkg/k25"
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez/profile/adapter"
 	"github.com/muka/go-bluetooth/bluez/profile/agent"
@@ -278,7 +279,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				return
 			case settings := <-fridge.settingsC:
 				log.Tracef("Got settings payload %v", settings)
-				c, err := NewSetStateCommand(settings)
+				c, err := k25.NewSetStateCommand(settings)
 				if err != nil {
 					panic(err)
 				}
@@ -329,7 +330,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 	go func(ctx context.Context) {
 		defer cancel()
 		log.Trace("state updater starting")
-		var f StatusReport
+		var f k25.StatusReport
 		for {
 			select {
 			case <-ctx.Done():
