@@ -33,9 +33,9 @@ type Settings struct {
 	// Temperature compensation values are labeled in celsius in the alpicool
 	// app. The values depend on the CelsiusFahrenheitModeMenuE5 setting, and
 	// are in Fahrenheit units when the fridge is in Fahrenheit mode
-	TempCompGTE6MinusDegCelsiusMenuE6                    int8 // E6: High range temperature compensation
-	TempCompGTE12MinusDegCelsiusLT6MinusDegCelsiusMenuE7 int8 // E8: Mid range temperature compensation
-	TempCompLT12MinusDegCelsiusMenuE8                    int8 // E8: Low range temperature compensation
+	TempCompGTEMinus6DegCelsiusMenuE6                    int8 // E6: High range temperature compensation
+	TempCompGTEMinus12DegCelsiusLTMinus6DegCelsiusMenuE7 int8 // E8: Mid range temperature compensation
+	TempCompLTMinus12DegCelsiusMenuE8                    int8 // E8: Low range temperature compensation
 	TempCompShutdownMenuE9                               int8 // E9: Shutdown? Perhaps a lower bound?
 }
 
@@ -73,9 +73,9 @@ func (c *StatusReport) CRC() uint16 {
 		uint16(uint8(c.HighestTempSettingMenuE2)) +
 		uint16(uint8(c.HysteresisMenuE3)) +
 		uint16(uint8(c.SoftStartDelayMinMenuE4)) +
-		uint16(uint8(c.TempCompGTE6MinusDegCelsiusMenuE6)) +
-		uint16(uint8(c.TempCompGTE12MinusDegCelsiusLT6MinusDegCelsiusMenuE7)) +
-		uint16(uint8(c.TempCompLT12MinusDegCelsiusMenuE8)) +
+		uint16(uint8(c.TempCompGTEMinus6DegCelsiusMenuE6)) +
+		uint16(uint8(c.TempCompGTEMinus12DegCelsiusLTMinus6DegCelsiusMenuE7)) +
+		uint16(uint8(c.TempCompLTMinus12DegCelsiusMenuE8)) +
 		uint16(uint8(c.TempCompShutdownMenuE9)) +
 		uint16(uint8(c.Temp)) +
 		uint16(uint8(c.UB17)) +
@@ -224,9 +224,9 @@ func (c *SetStateCommand) CRC() uint16 {
 		uint16(uint8(c.HighestTempSettingMenuE2)) +
 		uint16(uint8(c.HysteresisMenuE3)) +
 		uint16(uint8(c.SoftStartDelayMinMenuE4)) +
-		uint16(uint8(c.TempCompGTE6MinusDegCelsiusMenuE6)) +
-		uint16(uint8(c.TempCompGTE12MinusDegCelsiusLT6MinusDegCelsiusMenuE7)) +
-		uint16(uint8(c.TempCompLT12MinusDegCelsiusMenuE8)) +
+		uint16(uint8(c.TempCompGTEMinus6DegCelsiusMenuE6)) +
+		uint16(uint8(c.TempCompGTEMinus12DegCelsiusLTMinus6DegCelsiusMenuE7)) +
+		uint16(uint8(c.TempCompLTMinus12DegCelsiusMenuE8)) +
 		uint16(uint8(c.TempCompShutdownMenuE9))
 
 	// Flags
