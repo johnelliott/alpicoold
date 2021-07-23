@@ -297,7 +297,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					tempC = CtoF(temp)
 				}
 				// Form command bytes
-				c, err := NewSetTempCommand(int8(tempC))
+				c, err := k25.NewSetTempCommand(int8(tempC))
 				if err != nil {
 					panic(err)
 				}
@@ -307,8 +307,8 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					panic(err)
 				}
 			case <-ticker.C:
-				log.Trace("Writing magic payload", PingCommand)
-				err = char.WriteValue(PingCommand, nil)
+				log.Trace("Writing magic payload", k25.PingCommand)
+				err = char.WriteValue(k25.PingCommand, nil)
 				if err != nil {
 					panic(err)
 				}
