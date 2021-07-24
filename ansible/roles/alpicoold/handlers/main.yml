@@ -1,0 +1,8 @@
+- name: restart service
+  become: yes
+  systemd:
+    name: "{{ servicename }}"
+    enabled: yes
+    state: restarted
+    daemon_reload: yes
+  when: service_enabled

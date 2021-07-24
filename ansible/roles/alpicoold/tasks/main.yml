@@ -1,0 +1,52 @@
+- name: local build executable
+  local_action:
+    module: make
+    chdir: ../cmd/alpicoold
+    target: build
+    params:
+      GOARM: "{{ armversion }}"
+
+- name: install executable
+  become: yes
+  copy:
+    src: "../cmd/alpicoold/alpicoold_raspi_arm{{ armversion }}"
+    dest: "/usr/local/bin/{{ servicename }}"
+    owner: root
+    mode: 0744
+  notify: restart service
+
+- name: service env file
+  become: yes
+  template:
+    src: env.j2
+    dest: /etc/{{ servicename }}-env
+    owner: root
+  notify: restart service
+
+# fridge homekit bridge service
+- name: install service
+  become: yes
+  template:
+    src: alpicoold.service.j2
+    dest: /etc/systemd/system/{{ servicename }}.service
+    owner: root
+  notify: restart service
+  when: service_enabled
+
+- name: enable service
+  become: yes
+  systemd:
+    name: "{{ servicename }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: service_enabled
+
+- name: disable service
+  become: yes
+  systemd:
+    name: "{{ servicename }}"
+    enabled: no
+    state: stopped
+    daemon_reload: yes
+  when: not service_enabled
