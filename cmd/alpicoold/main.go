@@ -143,6 +143,12 @@ Lerp:
 		}
 	}
 
+	if s.InputV1 > 13 {
+		// Voltage is high enough that we're not on a 12v regulated battery
+		log.Info("Fridge input voltage over 13v; skipping compressor cycle")
+		return
+	}
+
 	log.Trace("Cycling compressor...")
 	prevSettings := s.Settings
 	// Turn down temp
@@ -270,7 +276,7 @@ func main() {
 	}()
 
 	go func() {
-		log.Debug("Fridge interval turnon/turnoff start")
+		log.Debug("Fridge comp. cycles start")
 		cycleOnTime := 15 * time.Second // TODO make this come from env/flags
 		ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
 		defer cccc1()
@@ -278,9 +284,9 @@ func main() {
 		defer cccc2()
 		// cycle on startup of daemon
 		go fridge.CycleCompressor(ccc1, cycleOnTime)
+		// TODO make this 8 hours a flag
 		ticker := time.NewTicker(8 * time.Hour)
 		for range ticker.C {
-			log.Debug("Fridge compressor cycle tick")
 			go fridge.CycleCompressor(ccc2, cycleOnTime)
 		}
 	}()
