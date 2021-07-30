@@ -284,7 +284,9 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				if err != nil {
 					panic(err)
 				}
-				log.Infof("Writing set state payload %v", c)
+				log.WithFields(log.Fields{
+					"payload": fmt.Sprintf("% x", c),
+				}).Infof("Writing set state payload")
 				err = char.WriteValue(c, nil)
 				if err != nil {
 					panic(err)
@@ -356,7 +358,11 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				log.Trace("Cancel: fridge state loop", ctx.Err())
 				return
 			case update := <-propsC:
-				log.Tracef("--> update name=%s int=%s val=%s", update.Name, update.Interface, update.Value)
+				log.WithFields(log.Fields{
+					"name":      update.Name,
+					"interface": update.Interface,
+					"value":     update.Value,
+				}).Tracef("state update")
 				if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
 					value := update.Value.([]byte)
 					err = f.UnmarshalBinary(value)

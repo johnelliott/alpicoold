@@ -146,8 +146,9 @@ func (f *Fridge) GetStatusReport() k25.StatusReport {
 func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
 	log.Info("Fridge quick compressor cycle")
 	// Capture settings
-	// wait if we see that the struct is just initialized
 	s := f.GetStatusReport()
+
+	// Wait if we see that the struct is just initialized
 	// TODO do this better, this is a lazy way
 	ticker := time.NewTicker(2 * time.Second)
 Lerp:
@@ -158,7 +159,7 @@ Lerp:
 			if s.Settings != initialFridgeSettings {
 				break Lerp
 			} else {
-				log.Trace("Waiting to see fridge initialized data")
+				log.Debug("Waiting to see fridge initialized data")
 			}
 		case <-ctx.Done():
 			return
