@@ -1,10 +1,11 @@
-# running
-See the makefile
 #deploying
+
+```bash
+ansible-playbook -i ~/inventory.yml ansible/deploy.yml -l pizero2 -e'loglevel=info'
+```
 
 #improvements
 - the client should not know about fridge things, it should just send and rx data to those endpoints, keep NewCOmmand out of it
-
 
 ```bash
 sudo LOGLEVEL=debug go run . -timeout 30s -pollrate 1s|jq -c
