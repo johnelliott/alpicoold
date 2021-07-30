@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math"
 	"os"
 	"os/signal"
@@ -77,9 +78,30 @@ func (f *Fridge) MonitorMu() {
 	for r := range f.inlet {
 		log.Trace("Fridge got status update", r.Temp)
 		f.mu.Lock()
+		prev := f.status
 		f.status = r
 		f.mu.Unlock()
+		// Log if on state changed
+		sr := f.GetStatusReport()
+		if prev.On != sr.On {
+			f.Log().Warn("on state changed")
+		}
 	}
+}
+
+// Log some basic stats to the console
+func (f *Fridge) Log() *log.Entry {
+	r := f.GetStatusReport()
+
+	voltageStr := fmt.Sprintf("%d.%dv", r.InputV1, r.InputV2)
+	return log.WithFields(log.Fields{
+		"eco":      r.EcoMode,
+		"input":    voltageStr,
+		"lck":      r.Locked,
+		"on":       r.On,
+		"set-temp": r.TempSet,
+		"temp":     r.Temp,
+	})
 }
 
 // SetOn Sends the fridge state to the fridge
@@ -149,8 +171,8 @@ Lerp:
 		return
 	}
 
-	log.Trace("Cycling compressor...")
 	prevSettings := s.Settings
+	f.Log().Trace("Cycling compressor...")
 	// Turn down temp
 	if !s.On {
 		// Turn on
@@ -174,22 +196,31 @@ Lerp:
 
 		log.Infof("CycleCompressor loweredT=%#v", loweredT)
 		s.TempSet = int8(loweredT)
-		log.Tracef("Fridge going to cold setting: On=%v TempSet=%v", s.On, s.TempSet)
+		log.WithFields(log.Fields{
+			"temp set": s.TempSet,
+			"on":       s.On,
+		}).Debugf("Fridge going to cold setting")
 		// block writing while we're cycling
 		f.settingsC <- s.Settings
 		// TODO see if there's a way to avoid this 30s window where things could get clobbered
 		// time after func turn off
 		time.AfterFunc(onTime, func() {
-			log.Tracef("Fridge going back to prev settings: %v", prevSettings.TempSet)
-			f.settingsC <- prevSettings
+			s := f.GetStatusReport().Settings
+			s.On = prevSettings.On
+			s.TempSet = prevSettings.TempSet
+			log.WithFields(log.Fields{
+				"temp set": s.TempSet,
+				"on":       s.On,
+			}).Debugf("Fridge going back to prev settings")
+			f.settingsC <- s
 		})
 	}
 }
 
 func main() {
 	flag.Parse()
-	log.Warn("timeout", timeout)
-	log.Warn("pollrate", pollrate)
+	log.Info("timeout", timeout)
+	log.Info("pollrate", pollrate)
 
 	// Use env to override app settings
 	timeout = env.GetOrDefaultSecond("TIMEOUT_SEC", *timeoutF)
@@ -207,8 +238,8 @@ func main() {
 	h264Encoder = env.GetOrDefaultString("H264ENCODER", *h264EncoderF)
 	h264Decoder = env.GetOrDefaultString("H264DNECODER", *h264DecoderF)
 
-	log.Warn("timeout", timeout)
-	log.Warn("pollrate", pollrate)
+	log.Info("timeout", timeout)
+	log.Info("pollrate", pollrate)
 
 	// env vars
 	LOGLEVEL := os.Getenv("LOGLEVEL")
@@ -227,7 +258,7 @@ func main() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	log.SetFormatter(&log.JSONFormatter{})
+	// log.SetFormatter(&log.JSONFormatter{})
 
 	// main context
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

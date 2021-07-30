@@ -25,8 +25,8 @@ type Settings struct {
 	EcoMode                     bool // Power efficient mode
 	HLvl                        int8 // Input voltage cutoff level H/M/L
 	TempSet                     int8 // Desired temperature (thermostat)
-	LowestTempSettingMenuE1     int8 // E1: Thermostat setting upper bound
 	HighestTempSettingMenuE2    int8 // E2: Thermostat setting lower bound
+	LowestTempSettingMenuE1     int8 // E1: Thermostat setting upper bound
 	HysteresisMenuE3            int8 // E3: Hysteresis i.e. Temp return setting
 	SoftStartDelayMinMenuE4     int8 // E4: Soft on start delay in minutes
 	CelsiusFahrenheitModeMenuE5 bool // E5  Celsius or Fahrenheit mode for fridge
@@ -149,7 +149,6 @@ func NewSetTempCommand(temp int8) ([]byte, error) {
 		uint16(c.Temp)
 
 	c.Checksum = checksum
-	fmt.Printf("c.Checksum %0#x\n", c.Checksum)
 
 	b, err := c.MarshalBinary()
 	if err != nil {
@@ -201,6 +200,11 @@ func NewSetStateCommand(s Settings) ([]byte, error) {
 	}
 
 	c.updateCRC()
+
+	// validate this isn't nonsense
+	if e := c.Valid(); e != nil {
+		return nil, e
+	}
 
 	b, err := c.MarshalBinary()
 	if err != nil {
@@ -256,9 +260,16 @@ func (c *SetStateCommand) Valid() error {
 	if c.Checksum != c.CRC() {
 		return fmt.Errorf("CRC does not validate")
 	}
+	if c.TempSet > c.HighestTempSettingMenuE2 {
+		return fmt.Errorf("Temp setting > maximum")
+	}
+	if c.TempSet < c.LowestTempSettingMenuE1 {
+		return fmt.Errorf("Temp setting < minimum")
+	}
 	return nil
 }
 
+// MarshalBinary serializes a state set command
 func (c *SetStateCommand) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := binary.Write(&buf, binary.BigEndian, c); err != nil {

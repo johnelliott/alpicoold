@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -289,15 +290,33 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					panic(err)
 				}
 			case temp := <-fridge.tempSettingsC:
-				log.Info("Got temp setting!", temp)
-				// Convert to current fridge temperature based on settings as
-				// the protocol requires
-				var tempC float64
-				if fridge.GetStatusReport().CelsiusFahrenheitModeMenuE5 {
-					tempC = CtoF(temp)
+				log.Info("Got celsius temp setting!", temp)
+				log.Debug("temp", temp)
+				sr := fridge.GetStatusReport()
+				maxTemp := float64(sr.HighestTempSettingMenuE2)
+				log.Debug("max temp", maxTemp)
+				minTemp := float64(sr.LowestTempSettingMenuE1)
+				log.Debug("min temp", minTemp)
+
+				// Use current units
+				isF := sr.CelsiusFahrenheitModeMenuE5
+				if isF {
+					temp = CtoF(temp)
 				}
+				log.Debug("converted temp", temp)
+				// Sanitize hk possible high input
+				temp = math.Min(maxTemp, temp)
+				log.Debug("capped temp", temp)
+
+				temp = math.Max(minTemp, temp)
+				log.Debug("upped temp", temp)
+				// Move result back to C if we're in C mode
+				if !isF {
+					temp = FtoC(temp)
+				}
+
 				// Form command bytes
-				c, err := k25.NewSetTempCommand(int8(tempC))
+				c, err := k25.NewSetTempCommand(int8(temp))
 				if err != nil {
 					panic(err)
 				}
