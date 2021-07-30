@@ -89,14 +89,19 @@ func (f *Fridge) MonitorMu() {
 	}
 }
 
+// VoltageStr formats voltage bytes for humans
+func (f *Fridge) VoltageStr() string {
+	sens := f.GetStatusReport().Sensors
+	return fmt.Sprintf("%d.%dv", sens.InputV1, sens.InputV2)
+}
+
 // Log some basic stats to the console
 func (f *Fridge) Log() *log.Entry {
 	r := f.GetStatusReport()
 
-	voltageStr := fmt.Sprintf("%d.%dv", r.InputV1, r.InputV2)
 	return log.WithFields(log.Fields{
 		"eco":      r.EcoMode,
-		"input":    voltageStr,
+		"input":    f.VoltageStr(),
 		"lck":      r.Locked,
 		"on":       r.On,
 		"set-temp": r.TempSet,
@@ -168,12 +173,12 @@ Lerp:
 
 	if s.InputV1 > 13 {
 		// Voltage is high enough that we're not on a 12v regulated battery
-		log.Info("Fridge input voltage over 13v; skipping compressor cycle")
+		f.Log().Info("Fridge input voltage over >=14v; skipping compressor cycle")
 		return
 	}
 
 	prevSettings := s.Settings
-	f.Log().Trace("Cycling compressor...")
+	log.Trace("Cycling compressor...")
 	// Turn down temp
 	if !s.On {
 		// Turn on
@@ -201,10 +206,9 @@ Lerp:
 			"temp set": s.TempSet,
 			"on":       s.On,
 		}).Debugf("Fridge going to cold setting")
-		// block writing while we're cycling
-		f.settingsC <- s.Settings
 		// TODO see if there's a way to avoid this 30s window where things could get clobbered
 		// time after func turn off
+		log.Debug("setting up settings restore")
 		time.AfterFunc(onTime, func() {
 			s := f.GetStatusReport().Settings
 			s.On = prevSettings.On
@@ -215,6 +219,10 @@ Lerp:
 			}).Debugf("Fridge going back to prev settings")
 			f.settingsC <- s
 		})
+
+		// block writing while we're cycling
+		log.Debug("sending cycle command")
+		f.settingsC <- s.Settings
 	}
 }
 
@@ -272,6 +280,9 @@ func main() {
 	clientContext, cancelClient := context.WithCancel(ctx)
 	defer cancelClient()
 
+	JSONClientContext, cancelJSONClient := context.WithCancel(ctx)
+	defer cancelJSONClient()
+
 	cycleCompressorContext, cancelCycleCompressor := context.WithCancel(ctx)
 	defer cancelCycleCompressor()
 
@@ -286,6 +297,10 @@ func main() {
 	}
 	// Collect updates into status
 	go func() { fridge.MonitorMu() }()
+
+	// Expose json client
+	// TODO get port from config
+	go JSONClient(JSONClientContext, "80", &fridge)
 
 	// Listen for control-c subtask
 	go func() {

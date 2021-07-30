@@ -1,0 +1,42 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>
+			Alpicoold
+		</title>
+		<meta name="viewport" content="width=device-width,initial-scale=1">
+		<style>
+body{margin:auto;max-width:36em;padding:2em 1em 5em;font:14px/1.2em Arial,Helvetica,-apple-system,BlinkMacSystemFont,segoe ui,Roboto,sans-serif,apple color emoji,segoe ui emoji,segoe ui symbol}body p{margin:1em auto;margin-block-start:0}body a{color:inherit;text-decoration:none}body a:hover{text-decoration:underline}body a:active{color:#472f9c;text-decoration:none}nav{display:flex;font:1.2em/1.2em;justify-content:space-between;margin-top:.5em;margin-bottom:2em}nav ul{display:flex;justify-content:flex-end;list-style-type:none;padding-left:0}nav ul li{margin:auto 1em auto 0;font-size:.9em}h1,h2,h3{margin-top:1em;line-height:1em}h1{font-size:1.6em}h2{font-size:1.2em;margin-block-start:1.25em;margin-block-end:.2em}h3{font-size:.8em;letter-spacing:.02em;margin-block-start:.3em;margin-block-end:.7em}ul{list-style-type:none;padding-left:0}ul li{line-height:1.25em}.print{display:none}@media print{@page{margin:none}body{margin:0 1cm 1cm;max-width:none}a{text-decoration:none}a:hover,a:active{text-decoration:none;color:inherit}.print{display:inherit}}@media(max-width:640px){nav{flex-flow:column nowrap;align-items:flex-start;margin-top:.5em;margin-bottom:1em}nav ul{margin:inherit}} audio{width:100\%}
+		</style>
+		<script src="//unpkg.com/alpinejs@3.2.2/dist/cdn.min.js" defer></script>
+	</head>
+	<body>
+		<div class="navigation">
+			<span class="print">
+				https://dev.johnelliott.org/404.html
+			</span>
+			<nav>
+				<h1 class="navigation__title">
+					Fridge Status
+				</h1>
+			</nav>
+		</div>
+		<div x-data="{ data: state.j }">
+			<p x-text="JSON.stringify(data, null, 2)">
+				Loading...
+			</p>
+			<p >
+			<ul x-for="Object.keys(state.j)">
+				<li x-text="k: state.j[k]"></li>
+			</ul>
+			</p>
+		</div>
+		<script>
+			const INITIAL_JSON = "{{ .InitialJSON }}"
+			const state = {}
+			state.j = JSON.parse(INITIAL_JSON)
+
+			console.log(state);
+		</script>
+	</body>
+</html>
