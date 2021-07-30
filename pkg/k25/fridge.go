@@ -34,7 +34,7 @@ type Settings struct {
 	// app. The values depend on the CelsiusFahrenheitModeMenuE5 setting, and
 	// are in Fahrenheit units when the fridge is in Fahrenheit mode
 	TempCompGTEMinus6DegCelsiusMenuE6                    int8 // E6: High range temperature compensation
-	TempCompGTEMinus12DegCelsiusLTMinus6DegCelsiusMenuE7 int8 // E8: Mid range temperature compensation
+	TempCompGTEMinus12DegCelsiusLTMinus6DegCelsiusMenuE7 int8 // E7: Mid range temperature compensation
 	TempCompLTMinus12DegCelsiusMenuE8                    int8 // E8: Low range temperature compensation
 	TempCompShutdownMenuE9                               int8 // E9: Shutdown? Perhaps a lower bound?
 }
