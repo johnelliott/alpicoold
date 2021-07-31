@@ -29,6 +29,7 @@ func handleGet(f *Fridge) http.HandlerFunc {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			log.WithFields(log.Fields{
+				"client": "JSONClient",
 				"method": r.Method,
 			}).Debug("http unsupported method")
 		}
@@ -53,33 +54,30 @@ func JSONClient(ctx context.Context, wg *sync.WaitGroup, port string, f *Fridge)
 		"client": "JSONClient",
 	}).Debugf("server starting on port %s", port)
 
-	serverCtx, cancelServerCtx := context.WithCancel(ctx)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleGet(f))
 	server := &http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%s", port),
 		Handler: mux,
 		BaseContext: func(_ net.Listener) context.Context {
-			return serverCtx
+			return ctx
 		},
 	}
 	server.RegisterOnShutdown(func() {
-		log.Debug("http server shutting down")
-		cancelServerCtx()
+		log.WithFields(log.Fields{
+			"err":    ctx.Err(),
+			"client": "JSONClient",
+		}).Debug("shutting down")
 	})
 
 	go func() {
-		<-serverCtx.Done()
-		log.WithFields(log.Fields{
-			"client": "JSONClient",
-		}).Tracef("client shutting down")
-		server.Shutdown(serverCtx)
+		<-ctx.Done()
+		log.WithFields(log.Fields{"client": "JSONClient"}).Tracef("client shutting down")
+		server.Shutdown(ctx)
 	}()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		panic(err)
 	}
-	log.WithFields(log.Fields{
-		"client": "JSONClient",
-	}).Error("http server done")
+	log.WithFields(log.Fields{"client": "JSONClient"}).Debug("done")
 }
