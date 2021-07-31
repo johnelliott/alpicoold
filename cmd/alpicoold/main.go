@@ -150,7 +150,7 @@ func (f *Fridge) GetStatusReport() k25.StatusReport {
 }
 
 // CycleCompressor spins up compressor to defeat power bank auto-off
-func (f *Fridge) CycleCompressor(ctx context.Context, onTime time.Duration) {
+func (f *Fridge) CycleCompressor(ctx context.Context, wg *sync.WaitGroup, onTime time.Duration) {
 	log.Info("Fridge quick compressor cycle")
 	// Capture settings
 	s := f.GetStatusReport()
@@ -178,9 +178,18 @@ Lerp:
 		f.Log().Info("Fridge input voltage over >=14v; skipping compressor cycle")
 		return
 	}
+	wg.Add(1)
+	defer func() {
+		log.WithFields(log.Fields{
+			"client": "CycleCompressor",
+		}).Trace("Calling done on main wait group")
+		wg.Done()
+	}()
 
 	prevSettings := s.Settings
-	log.Trace("Cycling compressor...")
+	log.WithFields(log.Fields{
+		"client": "CycleCompressor",
+	}).Trace("Cycling compressor...")
 	// Turn down temp
 	if !s.On {
 		// Turn on
@@ -210,12 +219,15 @@ Lerp:
 		}).Debugf("Fridge going to cold setting")
 		// TODO see if there's a way to avoid this 30s window where things could get clobbered
 		// time after func turn off
-		log.Debug("setting up settings restore")
+		log.WithFields(log.Fields{
+			"client": "CycleCompressor",
+		}).Debug("setting up settings restore")
 		time.AfterFunc(onTime, func() {
 			s := f.GetStatusReport().Settings
 			s.On = prevSettings.On
 			s.TempSet = prevSettings.TempSet
 			log.WithFields(log.Fields{
+				"client":   "CycleCompressor",
 				"temp set": s.TempSet,
 				"on":       s.On,
 			}).Debugf("Fridge going back to prev settings")
@@ -223,7 +235,9 @@ Lerp:
 		})
 
 		// block writing while we're cycling
-		log.Debug("sending cycle command")
+		log.WithFields(log.Fields{
+			"client": "CycleCompressor",
+		}).Debug("sending cycle command")
 		f.settingsC <- s.Settings
 	}
 }
