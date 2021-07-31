@@ -18,10 +18,11 @@ import (
 
 var (
 	// Flags
-	adapterNameF = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
-	addrF        = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
-	timeoutF     = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
-	pollrateF    = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	adapterNameF   = flag.String("adapter", zeroAdapter, "adapter name, e.g. hci0")
+	addrF          = flag.String("fridgeaddr", "", "address of remote peripheral (MAC on Linux, UUID on OS X)")
+	timeoutF       = flag.Duration("timeout", 20*time.Minute, "overall program timeout")
+	pollrateF      = flag.Duration("pollrate", 1*time.Second, "magic payload polling rate")
+	compcyclerateF = flag.Duration("compcyclerate", 0, "interval to cycle compressor in seconds")
 
 	// HomeKit
 	storagePathF = flag.String("fridgestoragepath", "./var/local/homekitdb", "path for sqlite storage of homekit data")
@@ -41,6 +42,7 @@ var (
 	// App settings
 	// TODO JSON log setting and control that below
 	pollrate           time.Duration
+	compcyclerate      time.Duration
 	minVideoBitrate    int
 	camRotationDegrees int
 	multiStream        bool
@@ -228,12 +230,11 @@ Lerp:
 
 func main() {
 	flag.Parse()
-	log.Info("timeout", timeout)
-	log.Info("pollrate", pollrate)
 
 	// Use env to override app settings
 	timeout = env.GetOrDefaultSecond("TIMEOUT_SEC", *timeoutF)
 	pollrate = env.GetOrDefaultSecond("POLLRATE_SEC", *pollrateF)
+	compcyclerate = env.GetOrDefaultSecond("COMP_CYCLE_RATE_SEC", *compcyclerateF)
 	adapterName = env.GetOrDefaultString("ADAPTER_NAME", *adapterNameF)
 	addr = env.GetOrDefaultString("FRIDGE_ADDR", *addrF)
 	storagePath := env.GetOrDefaultString("STORAGE_PATH", *storagePathF)
@@ -247,8 +248,11 @@ func main() {
 	h264Encoder = env.GetOrDefaultString("H264ENCODER", *h264EncoderF)
 	h264Decoder = env.GetOrDefaultString("H264DNECODER", *h264DecoderF)
 
-	log.Info("timeout", timeout)
-	log.Info("pollrate", pollrate)
+	log.WithFields(log.Fields{
+		"daemon timeout": timeout,
+		"pollrate":       pollrate,
+		"compcyclerate":  compcyclerate,
+	}).Info("Init params")
 
 	// env vars
 	LOGLEVEL := os.Getenv("LOGLEVEL")
@@ -322,21 +326,25 @@ func main() {
 		cancel()
 	}()
 
-	go func() {
-		log.Debug("Fridge comp. cycles start")
-		cycleOnTime := 15 * time.Second // TODO make this come from env/flags
-		ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
-		defer cccc1()
-		ccc2, cccc2 := context.WithCancel(cycleCompressorContext)
-		defer cccc2()
-		// cycle on startup of daemon
-		go fridge.CycleCompressor(ccc1, cycleOnTime)
-		// TODO make this 8 hours a flag
-		ticker := time.NewTicker(8 * time.Hour)
-		for range ticker.C {
-			go fridge.CycleCompressor(ccc2, cycleOnTime)
-		}
-	}()
+	if compcyclerate > 0 {
+		go func() {
+			log.Debug("Fridge comp. cycles start")
+			cycleOnTime := 15 * time.Second // TODO make this come from env/flags
+			ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
+			defer cccc1()
+			ccc2, cccc2 := context.WithCancel(cycleCompressorContext)
+			defer cccc2()
+			// cycle on startup of daemon
+			go fridge.CycleCompressor(ccc1, cycleOnTime)
+			// TODO make this 8 hours a flag
+			ticker := time.NewTicker(compcyclerate)
+			for range ticker.C {
+				go fridge.CycleCompressor(ccc2, cycleOnTime)
+			}
+		}()
+	} else {
+		log.Info("comp cycle rate 0, cycling is off")
+	}
 
 	// Kick off bluetooth client
 	go func() {
