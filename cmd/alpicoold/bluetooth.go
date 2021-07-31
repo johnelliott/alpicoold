@@ -75,18 +75,6 @@ func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, 
 		return fmt.Errorf("findDevice: %s", err)
 	}
 
-	/*
-		watchProps, err := dev.WatchProperties()
-		if err != nil {
-			return err
-		}
-		go func() {
-			for propUpdate := range watchProps {
-				log.Tracef("--> device updated %s=%v", propUpdate.Name, propUpdate.Value)
-			}
-		}()
-	*/
-
 	connectContext, cancelconnectDevice := context.WithCancel(ctx)
 	defer cancelconnectDevice()
 	err = connect(connectContext, dev, ag, adapterID)
@@ -109,6 +97,10 @@ func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, 
 	select {
 	case <-ctx.Done():
 		log.Tracef("Cancel: bluetooth client: %v", ctx.Err())
+		// wait for cycling to be done
+		log.Trace("await compressor cycle")
+		fridge.cycleCompressorWg.Wait()
+		log.Trace("compressor cycle done, disconnecting bluetooth")
 		err := dev.Disconnect()
 		if err != nil {
 			log.Error(err)
@@ -270,9 +262,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 	log.Debugf("Found writable UUID: %v", char.Properties.UUID)
 
 	// Make a little cancelable pagic payloader
-	writexCtx, cancel := context.WithCancel(ctx)
-	go func(writexCtx context.Context) {
-		defer cancel()
+	go func() {
 		log.Trace("BT attribute writer starting")
 		// Set up a timer to send the stupid notification payload
 		ticker := time.NewTicker(pollrate)
@@ -280,9 +270,6 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 
 		for {
 			select {
-			case <-ctx.Done():
-				log.Trace("Cancel: magic payload loop", ctx.Err())
-				return
 			case settings := <-fridge.settingsC:
 				log.Tracef("Got settings payload %v", settings)
 				c, err := k25.NewSetStateCommand(settings)
@@ -290,6 +277,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					panic(err)
 				}
 				log.WithFields(log.Fields{
+					"client":  "BluetoothClient",
 					"payload": fmt.Sprintf("% x", c),
 				}).Infof("Writing set state payload")
 				err = char.WriteValue(c, nil)
@@ -297,13 +285,15 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 					panic(err)
 				}
 			case temp := <-fridge.tempSettingsC:
-				log.Info("Got celsius temp setting!", temp)
-				log.Debug("temp", temp)
+				log.WithFields(log.Fields{
+					"temp":   temp,
+					"client": "BluetoothClient",
+				}).Info("Got celsius temp setting!")
 				sr := fridge.GetStatusReport()
 				maxTemp := float64(sr.HighestTempSettingMenuE2)
-				log.Debug("max temp", maxTemp)
+				log.Trace("max temp", maxTemp)
 				minTemp := float64(sr.LowestTempSettingMenuE1)
-				log.Debug("min temp", minTemp)
+				log.Trace("min temp", minTemp)
 
 				// Use current units
 				isF := sr.CelsiusFahrenheitModeMenuE5
@@ -340,7 +330,7 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 				}
 			}
 		}
-	}(writexCtx)
+	}()
 
 	notifChar, err := dev.GetCharByUUID(readeableFridgeUUID)
 	if err != nil {
@@ -352,43 +342,33 @@ func WatchState(ctx context.Context, fridge *Fridge, a *adapter.Adapter1, dev *d
 	if err != nil {
 		return err
 	}
-	stateUpdaterCtx, cancel := context.WithCancel(ctx)
-	go func(ctx context.Context) {
-		defer cancel()
+	go func() {
 		log.Trace("state updater starting")
 		var f k25.StatusReport
-		for {
-			select {
-			case <-ctx.Done():
-				log.Trace("Cancel: fridge state loop", ctx.Err())
-				return
-			case update := <-propsC:
-				log.WithFields(log.Fields{
-					"name":      update.Name,
-					"interface": update.Interface,
-					"value":     update.Value,
-				}).Tracef("state update")
-				if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
-					value := update.Value.([]byte)
-					err = f.UnmarshalBinary(value)
-					if err != nil {
-						log.Error("Other frame UnmarshalBinary", err)
-						break
-					}
-					// Send status to rest of app
-					fridge.inlet <- f
+		for update := range propsC {
+			log.WithFields(log.Fields{
+				"name":      update.Name,
+				"interface": update.Interface,
+				"value":     update.Value,
+			}).Tracef("state update")
+			if update.Interface == "org.bluez.GattCharacteristic1" && update.Name == "Value" {
+				value := update.Value.([]byte)
+				err = f.UnmarshalBinary(value)
+				if err != nil {
+					log.Error("Other frame UnmarshalBinary", err)
+					break
 				}
+				// Send status to rest of app
+				fridge.inlet <- f
 			}
 		}
-	}(stateUpdaterCtx)
+	}()
 
 	err = notifChar.StartNotify()
 	if err != nil {
 		return err
 	}
 
-	// so maybe nothing here cancels, it just clones context and does the watchig and writing
-	// <-ctx.Done()
 	log.Trace("watchState returning now")
 	return nil
 }

@@ -38,6 +38,8 @@ var (
 	h264EncoderF        = flag.String("h264_encoder", "h264_omx", "h264 video encoder")
 
 	initialFridgeSettings = k25.Settings{}
+	cycleOnTime           = 8 * time.Second
+	shutDownWaitTime      = 20*time.Second + cycleOnTime
 
 	// App settings
 	// TODO JSON log setting and control that below
@@ -67,11 +69,12 @@ type settingsC chan k25.Settings
 
 // Fridge represents a full fridge state
 type Fridge struct {
-	mu            sync.RWMutex
-	status        k25.StatusReport
-	inlet         statusReportC
-	tempSettingsC tempSettingsC
-	settingsC     settingsC
+	mu                sync.RWMutex
+	status            k25.StatusReport
+	inlet             statusReportC
+	tempSettingsC     tempSettingsC
+	settingsC         settingsC
+	cycleCompressorWg *sync.WaitGroup
 }
 
 // MonitorMu routine, mutex based
@@ -178,10 +181,12 @@ Lerp:
 		f.Log().Info("Fridge input voltage over >=14v; skipping compressor cycle")
 		return
 	}
+
 	wg.Add(1)
 	defer func() {
 		log.WithFields(log.Fields{
 			"client": "CycleCompressor",
+			"task":   "cycle init",
 		}).Trace("Calling done on main wait group")
 		wg.Done()
 	}()
@@ -222,7 +227,17 @@ Lerp:
 		log.WithFields(log.Fields{
 			"client": "CycleCompressor",
 		}).Debug("setting up settings restore")
+
+		// wait for state restore
+		wg.Add(1)
 		time.AfterFunc(onTime, func() {
+			defer func() {
+				log.WithFields(log.Fields{
+					"client": "CycleCompressor",
+					"task":   "restore",
+				}).Trace("Calling done on main wait group")
+				wg.Done()
+			}()
 			s := f.GetStatusReport().Settings
 			s.On = prevSettings.On
 			s.TempSet = prevSettings.TempSet
@@ -232,6 +247,11 @@ Lerp:
 				"on":       s.On,
 			}).Debugf("Fridge going back to prev settings")
 			f.settingsC <- s
+			log.WithFields(log.Fields{
+				"client":   "CycleCompressor",
+				"temp set": s.TempSet,
+				"on":       s.On,
+			}).Debugf("Fridge went back to prev settings")
 		})
 
 		// block writing while we're cycling
@@ -293,6 +313,7 @@ func main() {
 
 	// Subtask quit response channels
 	wg := sync.WaitGroup{}
+	cycleCompressorWg := sync.WaitGroup{}
 
 	// Subtask contexts
 	clientContext, cancelClient := context.WithCancel(ctx)
@@ -309,9 +330,10 @@ func main() {
 
 	// Data setup
 	fridge := Fridge{
-		inlet:         make(statusReportC),
-		tempSettingsC: make(tempSettingsC),
-		settingsC:     make(settingsC),
+		inlet:             make(statusReportC),
+		tempSettingsC:     make(tempSettingsC),
+		settingsC:         make(settingsC),
+		cycleCompressorWg: &cycleCompressorWg,
 	}
 	// Collect updates into status
 	go func() { fridge.MonitorMu() }()
@@ -344,16 +366,16 @@ func main() {
 		// TODO add wait group here to not shut down the service with the fridge on when we want it to end up off
 		go func() {
 			log.Debug("Fridge comp. cycles start")
-			cycleOnTime := 15 * time.Second
 			ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
 			defer cccc1()
 			ccc2, cccc2 := context.WithCancel(cycleCompressorContext)
 			defer cccc2()
 			// cycle on startup of daemon
-			go fridge.CycleCompressor(ccc1, cycleOnTime)
+			go fridge.CycleCompressor(ccc1, &cycleCompressorWg, cycleOnTime)
 			ticker := time.NewTicker(compcyclerate)
+			defer ticker.Stop()
 			for range ticker.C {
-				go fridge.CycleCompressor(ccc2, cycleOnTime)
+				go fridge.CycleCompressor(ccc2, &cycleCompressorWg, cycleOnTime)
 			}
 		}()
 	} else {
@@ -395,7 +417,7 @@ func main() {
 
 			// bail hard if this takes too long
 			go func() {
-				theFinalCountdown := 20 * time.Second
+				theFinalCountdown := shutDownWaitTime
 				log.Debugf("Waiting %v then exiting", theFinalCountdown)
 				time.AfterFunc(theFinalCountdown, func() {
 					panic("Took too long to exit\n")
