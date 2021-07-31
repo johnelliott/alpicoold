@@ -304,7 +304,7 @@ func main() {
 
 	// Expose json client
 	// TODO get port from config
-	go JSONClient(JSONClientContext, "80", &fridge)
+	go JSONClient(JSONClientContext, &wg, "80", &fridge)
 
 	// Listen for control-c subtask
 	go func() {

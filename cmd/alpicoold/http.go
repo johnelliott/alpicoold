@@ -2,61 +2,84 @@ package main
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
-	"html/template"
+	"mime"
+	"net"
 	"net/http"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
 
-//go:embed status.tmpl
-var statusTmpl string
+var mimeTypeJSON = mime.TypeByExtension(".json")
+var contentType = http.CanonicalHeaderKey("content-type")
 
-var statuspage = template.Must(template.New("status").Parse(statusTmpl))
-
-func handleStatus(f *Fridge) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s := f.GetStatusReport()
-		json, err := s.MarshalJSON()
-		if err != nil {
-			panic(err)
-		}
-		data := struct{ InitialJSON string }{InitialJSON: fmt.Sprintf("%s", json)}
-		err = statuspage.ExecuteTemplate(w, "status", data)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func handleJSON(f *Fridge) http.HandlerFunc {
+func handleGet(f *Fridge) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			s := f.GetStatusReport()
 			json, err := s.MarshalJSON()
 			if err != nil {
 				panic(err)
 			}
+			w.Header().Set(contentType, mimeTypeJSON)
 			w.Write(json)
-		} else {
-			fmt.Println(r.Method)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			log.WithFields(log.Fields{
+				"method": r.Method,
+			}).Debug("http unsupported method")
 		}
 	}
 }
 
 // JSONClient serves json
-func JSONClient(ctx context.Context, port string, f *Fridge) {
-	// TODO use context to cancel
+func JSONClient(ctx context.Context, wg *sync.WaitGroup, port string, f *Fridge) {
+	wg.Add(1)
+	defer func() {
+		log.WithFields(log.Fields{
+			"client": "JSONClient",
+		}).Trace("Calling done on main wait group")
+		wg.Done()
+	}()
+
 	if port == "" {
-		port = "8080"
+		port = "80"
 	}
 
-	log.Debugf("JSON server starting on port %s ...", port)
-	http.HandleFunc("/", handleStatus(f))
-	http.HandleFunc("/status", handleJSON(f))
-	if err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port), nil); err != nil {
-		log.Panic(err)
+	log.WithFields(log.Fields{
+		"client": "JSONClient",
+	}).Debugf("server starting on port %s", port)
+
+	serverCtx, cancelServerCtx := context.WithCancel(ctx)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleGet(f))
+	server := &http.Server{
+		Addr:    fmt.Sprintf("0.0.0.0:%s", port),
+		Handler: mux,
+		BaseContext: func(_ net.Listener) context.Context {
+			return serverCtx
+		},
 	}
+	server.RegisterOnShutdown(func() {
+		log.Debug("http server shutting down")
+		cancelServerCtx()
+	})
+
+	go func() {
+		<-serverCtx.Done()
+		log.WithFields(log.Fields{
+			"client": "JSONClient",
+		}).Tracef("client shutting down")
+		server.Shutdown(serverCtx)
+	}()
+
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		panic(err)
+	}
+	log.WithFields(log.Fields{
+		"client": "JSONClient",
+	}).Error("http server done")
 }
