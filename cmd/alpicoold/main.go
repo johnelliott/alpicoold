@@ -322,21 +322,21 @@ func main() {
 		)
 		log.Trace("Listening for signals")
 		s := <-sig
-		log.Debug("Got signal:", s)
+		log.Debugf("Got signal: %v", s)
 		cancel()
 	}()
 
 	if compcyclerate > 0 {
+		// TODO add wait group here to not shut down the service with the fridge on when we want it to end up off
 		go func() {
 			log.Debug("Fridge comp. cycles start")
-			cycleOnTime := 15 * time.Second // TODO make this come from env/flags
+			cycleOnTime := 15 * time.Second
 			ccc1, cccc1 := context.WithCancel(cycleCompressorContext)
 			defer cccc1()
 			ccc2, cccc2 := context.WithCancel(cycleCompressorContext)
 			defer cccc2()
 			// cycle on startup of daemon
 			go fridge.CycleCompressor(ccc1, cycleOnTime)
-			// TODO make this 8 hours a flag
 			ticker := time.NewTicker(compcyclerate)
 			for range ticker.C {
 				go fridge.CycleCompressor(ccc2, cycleOnTime)
@@ -381,7 +381,7 @@ func main() {
 
 			// bail hard if this takes too long
 			go func() {
-				theFinalCountdown := 30 * time.Second
+				theFinalCountdown := 20 * time.Second
 				log.Debugf("Waiting %v then exiting", theFinalCountdown)
 				time.AfterFunc(theFinalCountdown, func() {
 					panic("Took too long to exit\n")

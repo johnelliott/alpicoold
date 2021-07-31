@@ -31,14 +31,20 @@ var (
 
 // Client is the main bluetooth client that looks at the fridge
 func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, hwaddr string) error {
+	log := log.WithFields(log.Fields{
+		"client": "BluetoothClient",
+	})
 	wg.Add(1)
 	defer func() {
-		log.Trace("Calling done on main wait group")
 		wg.Done()
+		log.Trace("Calling done on main wait group")
 	}()
 
 	// clean up connection on exit
-	defer api.Exit()
+	defer func() {
+		api.Exit()
+		log.Trace("Api exit done")
+	}()
 
 	log.Infof("Discovering %s on %s", hwaddr, adapterID)
 
@@ -103,7 +109,6 @@ func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, 
 	select {
 	case <-ctx.Done():
 		log.Tracef("Cancel: bluetooth client: %v", ctx.Err())
-		log.Trace("Disconnecting from bluetooth...")
 		err := dev.Disconnect()
 		if err != nil {
 			log.Error(err)

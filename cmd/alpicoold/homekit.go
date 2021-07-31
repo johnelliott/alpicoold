@@ -32,8 +32,10 @@ type HKSettings struct {
 func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings HKSettings) {
 	wg.Add(1)
 	defer func() {
-		log.Trace("HK client calling done on main wait group")
 		wg.Done()
+		log.WithFields(log.Fields{
+			"client": "HKClient",
+		}).Trace("Calling done on main wait group")
 	}()
 	log.Trace("HKClient start")
 
