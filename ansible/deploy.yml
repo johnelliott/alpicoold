@@ -2,6 +2,9 @@
 - hosts: fridges
   vars:
     loglevel: debug
+    pollrate_sec: 2
+    timeout_sec: 90000 # 1 day
+    comp_cycle_rate_sec: 35000 # about 9.72 hours
   roles:
     #- camera
     - alpicoold

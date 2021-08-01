@@ -1,5 +1,3 @@
 ---
 servicename: alpicoold
-timeout_sec: 21600
 storagepath: /var/local/homekitdb
-pollrate_sec: 2
