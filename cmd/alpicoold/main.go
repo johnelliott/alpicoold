@@ -148,7 +148,6 @@ func (f *Fridge) SetLocked(lockIt bool) {
 func (f *Fridge) GetStatusReport() k25.StatusReport {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	log.Trace("getting status report", f.status.Temp)
 	return f.status
 }
 

@@ -164,7 +164,6 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 				return
 			case <-ticker.C:
 				s := fridge.GetStatusReport()
-				log.Tracef("Homekit got fridge status %v", s.Temp)
 				var t float64
 				var tempSetting float64
 				if s.CelsiusFahrenheitModeMenuE5 {
@@ -174,6 +173,11 @@ func HKClient(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, settings 
 					t = float64(s.Temp)
 					tempSetting = float64(s.TempSet)
 				}
+				log.WithFields(log.Fields{
+					"client":      "HKClient",
+					"temp":        t,
+					"tempSetting": tempSetting,
+				}).Trace("settings to HK")
 
 				// switches/buttons
 				onButton.Switch.On.SetValue(s.On)
