@@ -75,9 +75,8 @@ func Client(ctx context.Context, wg *sync.WaitGroup, fridge *Fridge, adapterID, 
 		return fmt.Errorf("findDevice: %s", err)
 	}
 
-	connectContext, cancelconnectDevice := context.WithCancel(ctx)
-	defer cancelconnectDevice()
-	err = connect(connectContext, dev, ag, adapterID)
+	// Connect to the device
+	err = connect(dev, ag, adapterID)
 	if err != nil {
 		return err
 	}
@@ -199,7 +198,7 @@ func discover(ctx context.Context, a *adapter.Adapter1, hwaddr string) (*device.
 	}
 }
 
-func connect(ctx context.Context, dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error {
+func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error {
 
 	props, err := dev.GetProperties()
 	if err != nil {
