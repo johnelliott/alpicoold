@@ -240,6 +240,9 @@ Lerp:
 			}()
 			s := f.GetStatusReport().Settings
 			s.On = prevSettings.On
+			if !s.On {
+				s.Locked = false
+			}
 			s.TempSet = prevSettings.TempSet
 			log.WithFields(log.Fields{
 				"client":   "CycleCompressor",
