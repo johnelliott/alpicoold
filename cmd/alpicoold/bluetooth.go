@@ -218,9 +218,11 @@ func connect(dev *device.Device1, ag *agent.SimpleAgent, adapterID string) error
 		log.Trace("Connecting device")
 		err = dev.Connect()
 		if err != nil {
+			// check if error string has specific info
 			if !strings.Contains(err.Error(), "Connection refused") {
-				return fmt.Errorf("Connect failed: %s", err)
+				return fmt.Errorf("Connect refused: %s", err)
 			}
+			return fmt.Errorf("Connect failed: %s", err)
 		}
 		log.Trace("Connected to device")
 	}
