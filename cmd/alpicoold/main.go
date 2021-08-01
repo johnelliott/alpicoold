@@ -389,11 +389,21 @@ func main() {
 		log.Debug("Launching client")
 		err := Client(clientContext, &wg, &fridge, adapterName, addr)
 		if err == context.Canceled || err == context.DeadlineExceeded {
-			log.Debug("Client: ", err)
+			log.WithFields(log.Fields{
+				"client": "bluetooth",
+				"err":    err,
+			}).Error("Client context canceled")
 		} else if err != nil {
-			log.Error(err)
+			log.WithFields(log.Fields{
+				"client": "bluetooth",
+				"err":    err,
+			}).Error("Client error")
+		} else {
+			log.WithFields(log.Fields{
+				"client": "bluetooth",
+			}).Debug("Done")
 		}
-		log.Debug("Client done")
+		// cancel all
 		cancel() // M
 	}()
 
